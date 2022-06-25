@@ -5,17 +5,20 @@
 
 /* Type for Resistive circuits.
  * Each instance has the number of nodes, a matrix
- * of the resistors in the circuit, and a DC
+ * of the conductance between nodes in the circuit, and a DC
  * voltage source.
  *
- * R matrix has the form:
- *     | R_11 R_12 ... R_1N R_10 |
- * R = | R_21 R_22 ... R_2N R_20 |
- *     | ...			 |
- *     | R_N1 R_N2 ... R_NN R_N0 |
+ * G matrix has the form:
+ *     | G_11 G_12 ... G_1N |
+ * G = | G_21 G_22 ... G_2N |
+ *     | ...  ...  ... ...  |
+ *     | G_N1 G_N2 ... G_NN |
  *
- * where R_ij is the resistance between nodes i and j. If i < j then
- * R_ij is positive. If i > j then R_ij is negative.
+ * where G_ij is the conductance beween nodes i and j, where G == 1 / R.
+ * The matrix is constructed the same was as an admittance matrix used
+ * for power flow analysis. G_ii = g_i1 + g_i2 + ... + g_iN and
+ * G_ij = -g_ij. g_ij = 0 if there is no connection between nodes
+ * i and j.
  *
  * Currently only one DC input source is supported.
  */
@@ -27,14 +30,17 @@ Circuit
 {
 	public:
 		/* Class constructor */
-		Circuit (unsigned int nodes, double *resis, double V);
+		Circuit (const unsigned int nodes, const double *cond, const double V, const unsigned int in);
+
+		/* Print the node voltages */
+		void printNodeVoltages ();
 
 		/* Used to calculate the node voltages */
-		friend void calcNodeVoltages (Circuit *c);
+		int calcNodeVoltages ();
 
 	private:
 		unsigned int N; /* Number of nodes in the circuit, including ground */
-		std::vector<std::vector<double>> R; /* Resistance matrix */
+		std::vector<std::vector<double>> G; /* Conductance matrix */
 		double Vin; /* DC voltage source */
 		unsigned int inNode; /* Node where the input source is connected */
 
