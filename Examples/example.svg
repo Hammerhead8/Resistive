@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   version="1.1"
+   id="example" width="100%" height="100%"  viewBox="-6 -6 845 368">
+<desc>
+XCircuit Version 3.9
+File "example.ps" Page 1
+</desc>
+<g stroke="black">
+<path d="M256,42 L228,42 " fill="none" stroke-width="2" stroke-linejoin="bevel" stroke-linecap="round" stroke="#000000" />
+<path d="M128,42 L156,42 " fill="none" stroke-width="2" stroke-linejoin="bevel" stroke-linecap="round" stroke="#000000" />
+<path d="M156,42 L162,56 174,28 186,56 198,28 210,56 222,28 228,42 " fill="none" stroke-width="2" stroke-linejoin="bevel" stroke-linecap="round" stroke="#000000" />
+<g transform="matrix( 0.7 -1.09102e-11 1.09102e-11  0.7 160  74)" fill="#a52a2a" >
+<text stroke="none" font-family="Times" font-size="40" ><tspan x="0" y="14">1<tspan dx="7"></tspan></tspan><text stroke="none" font-family="Times" font-size="40" ><tspan x="23" y="14">&#937;</tspan></text>
+</text></g>
+<g transform="matrix( 0.7 -1.09102e-11 1.09102e-11  0.7 176  10)" fill="#0000ff" >
+<text stroke="none" font-family="Times" font-size="40" ><tspan x="0" y="14">R1</tspan>
+</text></g>
+<g transform="matrix( 0.7 -1.09102e-11 1.09102e-11  0.7 160 122)" fill="#a52a2a" >
+<text stroke="none" font-family="Times" font-size="40" ><tspan x="0" y="0"></tspan>
+</text></g>
+<path d="M416,138 L416,166 " fill="none" stroke-width="2" stroke-linejoin="bevel" stroke-linecap="round" stroke="#000000" />
+<path d="M416,266 L416,238 " fill="none" stroke-width="2" stroke-linejoin="bevel" stroke-linecap="round" stroke="#000000" />
+<path d="M416,238 L430,232 402,220 430,208 402,196 430,184 402,172 416,166 " fill="none" stroke-width="2" stroke-linejoin="bevel" stroke-linecap="round" stroke="#000000" />
+<g transform="matrix( 0.7    0   -0  0.7 448 202)" fill="#a52a2a" >
+<text stroke="none" font-family="Times" font-size="40" ><tspan x="0" y="14">1<tspan dx="7"></tspan></tspan><text stroke="none" font-family="Times" font-size="40" ><tspan x="23" y="14">&#937;</tspan></text>
+</text></g>
+<g transform="matrix( 0.7    0   -0  0.7 448 170)" fill="#0000ff" >
+<text stroke="none" font-family="Times" font-size="40" ><tspan x="0" y="14">R2</tspan>
+</text></g>
+<g transform="matrix( 0.7    0   -0  0.7 448 250)" fill="#a52a2a" >
+<text stroke="none" font-family="Times" font-size="40" ><tspan x="0" y="0"></tspan>
+</text></g>
+<path d="M768,138 L768,166 " fill="none" stroke-width="2" stroke-linejoin="bevel" stroke-linecap="round" stroke="#000000" />
+<path d="M768,266 L768,238 " fill="none" stroke-width="2" stroke-linejoin="bevel" stroke-linecap="round" stroke="#000000" />
+<path d="M768,238 L782,232 754,220 782,208 754,196 782,184 754,172 768,166 " fill="none" stroke-width="2" stroke-linejoin="bevel" stroke-linecap="round" stroke="#000000" />
+<g transform="matrix( 0.7    0   -0  0.7 800 202)" fill="#a52a2a" >
+<text stroke="none" font-family="Times" font-size="40" ><tspan x="0" y="14">1<tspan dx="7"></tspan></tspan><text stroke="none" font-family="Times" font-size="40" ><tspan x="23" y="14">&#937;</tspan></text>
+</text></g>
+<g transform="matrix( 0.7    0   -0  0.7 800 170)" fill="#0000ff" >
+<text stroke="none" font-family="Times" font-size="40" ><tspan x="0" y="14">R4</tspan>
+</text></g>
+<g transform="matrix( 0.7    0   -0  0.7 800 250)" fill="#a52a2a" >
+<text stroke="none" font-family="Times" font-size="40" ><tspan x="0" y="0"></tspan>
+</text></g>
+<path d="M704,42 L676,42 " fill="none" stroke-width="2" stroke-linejoin="bevel" stroke-linecap="round" stroke="#000000" />
+<path d="M576,42 L604,42 " fill="none" stroke-width="2" stroke-linejoin="bevel" stroke-linecap="round" stroke="#000000" />
+<path d="M604,42 L610,56 622,28 634,56 646,28 658,56 670,28 676,42 " fill="none" stroke-width="2" stroke-linejoin="bevel" stroke-linecap="round" stroke="#000000" />
+<g transform="matrix( 0.7 -1.09102e-11 1.09102e-11  0.7 608  74)" fill="#a52a2a" >
+<text stroke="none" font-family="Times" font-size="40" ><tspan x="0" y="14">1<tspan dx="7"></tspan></tspan><text stroke="none" font-family="Times" font-size="40" ><tspan x="23" y="14">&#937;</tspan></text>
+</text></g>
+<g transform="matrix( 0.7 -1.09102e-11 1.09102e-11  0.7 624  10)" fill="#0000ff" >
+<text stroke="none" font-family="Times" font-size="40" ><tspan x="0" y="14">R3</tspan>
+</text></g>
+<g transform="matrix( 0.7 -1.09102e-11 1.09102e-11  0.7 608 122)" fill="#a52a2a" >
+<text stroke="none" font-family="Times" font-size="40" ><tspan x="0" y="0"></tspan>
+</text></g>
+<path d="M576,42 L256,42 " fill="none" stroke-width="2" stroke-linejoin="bevel" stroke-linecap="round" stroke="#000000" />
+<path d="M416,138 L416,42 " fill="none" stroke-width="2" stroke-linejoin="bevel" stroke-linecap="round" stroke="#000000" />
+<path d="M768,138 L768,42 704,42 " fill="none" stroke-width="2" stroke-linejoin="bevel" stroke-linecap="round" stroke="#000000" />
+<path d="M768,266 L768,362 32,362 32,250 " fill="none" stroke-width="2" stroke-linejoin="bevel" stroke-linecap="round" stroke="#000000" />
+<path d="M32,138 L32,42 128,42 " fill="none" stroke-width="2" stroke-linejoin="bevel" stroke-linecap="round" stroke="#000000" />
+<path d="M416,266 L416,362 " fill="none" stroke-width="2" stroke-linejoin="bevel" stroke-linecap="round" stroke="#000000" />
+<ellipse cx="32" cy="186" rx="32" ry="32" fill="none" stroke-width="2" stroke-linejoin="bevel" stroke-linecap="round" stroke="#000000" />
+<path d="M32,154 L32,122 " fill="none" stroke-width="2" stroke-linejoin="bevel" stroke-linecap="round" stroke="#000000" />
+<path d="M32,218 L32,250 " fill="none" stroke-width="2" stroke-linejoin="bevel" stroke-linecap="round" stroke="#000000" />
+<g transform="matrix(   1    0   -0    1  32 172)" fill="#000000" >
+<text stroke="none" font-family="Times" font-size="40" ><tspan x="-11" y="11">+</tspan>
+</text></g>
+<g transform="matrix(   1    0   -0    1  32 208)" fill="#000000" >
+<text stroke="none" font-family="Times" font-size="40" ><tspan x="-11" y="6">&#8722;</tspan>
+</text></g>
+<g transform="matrix( 0.7    0   -0  0.7  80 170)" fill="#0000ff" >
+<text stroke="none" font-family="Times" font-size="40" ><tspan x="0" y="14">Vin</tspan>
+</text></g>
+<g transform="matrix( 0.7    0   -0  0.7  80 202)" fill="#a52a2a" >
+<text stroke="none" font-family="Times" font-size="40" ><tspan x="0" y="14">5V</tspan>
+</text></g>
+</g>
+</svg>
