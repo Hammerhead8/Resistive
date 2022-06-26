@@ -4,6 +4,9 @@ The user provides the number of nodes in the circuit, a conductance matrix, and 
 input voltage source. Resistive using nodal analysis to calculate the node voltages. Using these, it can calculate
 the branch currents.
 
+Currently it has only been tested on simple ladder-type circuits with one
+DC voltage source like the one in the below example.
+
 # Dependencies
 The only external dependancy is LAPACKE. If you're using Linux then it should be available through your software
 repositories. Otherwise, it can be downloaded and built from https://netlib.org/lapack.
