@@ -18,7 +18,7 @@ The usage of Resistive can be shown using a basic example. consider the followin
 
 Node 1 is between Vin and R1, node 2 is between R1 and R3, and node 3 is between R3 and R4. The node voltages can
 be easily calculated by hand as V1 = 5, V2 = 2, and V3 = 1. To solve for these voltages using Resistive, we need
-a conductance matrix. This is constructed the same way as an admittance matrix when performing power flow analysis.
+a [conductance matrix](https://en.wikipedia.org/wiki/Nodal_admittance_matrix#Construction). This is constructed the same way as an admittance matrix when performing power flow analysis.
 Along the diagonal is the sum of the conductances of all resistors connected to that node, and across the rows are
 the conductances between nodes i and j. For this example circuit, the conductance matrix would be
 ```
@@ -44,13 +44,13 @@ main ()
   double G[9] = {1, -1, 0, -1, 3, -1, 0, -1, 2};
   double vIn = 5;
   unsigned int in = 1;
-  
+
   /* Create a circuit using the above values */
   Circuit c (nodes, g, vIn, in);
-  
+
   /* Calculate the node voltages of the circuit */
   c.calcNodeVoltages ();
-  
+
   /* Print the node voltages */
   c.printNodeVoltages ();
 }
