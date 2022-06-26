@@ -22,13 +22,11 @@ Circuit::Circuit (const unsigned int nodes, const double *cond, const double V, 
 	this->vNode.resize (nodes);
 	this->G.resize (nodes);
 
-	/* Create the resistance matrix */
+	/* Create the conductance matrix and
+	 * set the values in the matrix */
 	for (i = 0; i < nodes; ++i) {
 		this->G[i].resize (nodes);
-	}
 
-	/* Now set the values in the matrix */
-	for (i = 0; i < nodes; ++i) {
 		for (j = 0; j < nodes; ++j) {
 			this->G[i][j] = cond[i * nodes + j];
 		}
@@ -137,4 +135,72 @@ Circuit::calcNodeVoltages ()
 
 	/* Return 0 if success, -1 if illegal argument, and 1 for singular matrix */
 	return err;
+}
+
+/* TODO:  Calculate current for branch that goes directly to ground */
+double
+Circuit::calcBranchCurrent (const unsigned int n1, const unsigned int n2)
+{
+	double V1, V2;
+	double G12;
+	double I12;
+	unsigned int i;
+	
+	/* Check if n1 == n2, in which case the current is zero */
+	if (n1 == n2) {
+		return 0;
+	}
+	
+	/* If n1 == 0 or n2 == 0, then its node voltage is zero */
+	if (n1 == 0) {
+		V1 = 0;
+		V2 = this->vNode[n2 - 1];
+		
+		/* To get the conductance between n1 and
+		 * ground, start with the value along the
+		 * diagonal in the G matrix  and add the other
+		 * elements (we add since the off-diagonal elements
+		 * are negative). */
+		G12 = this->G[n2 - 1][n2 - 1];
+		for (i = 0; i < this->N; ++i) {
+			if (i == n2 - 1) {
+				continue;
+			}
+			
+			G12 += this->G[n2 - 1][i];
+		}
+	}
+	
+	else if (n2 == 0) {
+		V1 = this->vNode[n1 - 1];
+		V2 = 0;
+		
+		/* To get the conductance between n1 and
+		 * ground, start with the value along the
+		 * diagonal in the G matrix  and add the other
+		 * elements (we add since the off-diagonal elements
+		 * are negative). */
+		G12 = this->G[n1 - 1][n1 - 1];
+		for (i = 0; i < this->N; ++i) {
+			if (i == n1 - 1) {
+				continue;
+			}
+			
+			G12 += this->G[n1 - 1][i];
+		}
+	}
+	
+	/* Get the voltages for nodes n1 and n2 from vNode */
+	else {
+		V1 = this->vNode[n1 - 1];
+		V2 = this->vNode[n2 - 1];
+		
+		/* Get the resistance between nodes n1 and n2 from the G matrix */
+		G12 = -1 * this->G[n1 - 1][n2 - 1];
+	}
+	
+	/* Calculate I12 = (V1 - V2) * G12 */
+	I12 = (V1 - V2) * G12;
+
+	return I12;
 }
