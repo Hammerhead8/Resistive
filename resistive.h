@@ -37,6 +37,9 @@ Circuit
 
 		/* Used to calculate the node voltages */
 		int calcNodeVoltages ();
+		
+		/* Calculate the current between nodes n1 and n2 */
+		double calcBranchCurrent (const unsigned int n1, const unsigned int n2);
 
 	private:
 		unsigned int N; /* Number of nodes in the circuit, including ground */
@@ -45,6 +48,7 @@ Circuit
 		unsigned int inNode; /* Node where the input source is connected */
 
 		std::vector<double> vNode; /* Vector of node voltages */
+		std::vector<double> iBranch; /* Vector of branch currents */
 };
 
 #endif
