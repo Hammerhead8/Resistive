@@ -137,7 +137,8 @@ Circuit::calcNodeVoltages ()
 	return err;
 }
 
-/* TODO:  Calculate current for branch that goes directly to ground */
+/* Calculate the current between nodes n1 and n2 using the calculated node voltages.
+ * calcNodeVoltages must be called before calling this function. */
 double
 Circuit::calcBranchCurrent (const unsigned int n1, const unsigned int n2)
 {
@@ -189,16 +190,16 @@ Circuit::calcBranchCurrent (const unsigned int n1, const unsigned int n2)
 			G12 += this->G[n1 - 1][i];
 		}
 	}
-	
-	/* Get the voltages for nodes n1 and n2 from vNode */
+
+	/* Otherwise get the voltages for nodes n1 and n2 from vNode */
 	else {
 		V1 = this->vNode[n1 - 1];
 		V2 = this->vNode[n2 - 1];
-		
+
 		/* Get the resistance between nodes n1 and n2 from the G matrix */
 		G12 = -1 * this->G[n1 - 1][n2 - 1];
 	}
-	
+
 	/* Calculate I12 = (V1 - V2) * G12 */
 	I12 = (V1 - V2) * G12;
 
