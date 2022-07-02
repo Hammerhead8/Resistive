@@ -33,16 +33,6 @@ Circuit::Circuit (const unsigned int nodes, const double *cond, const double V, 
 	}
 }
 
-void
-Circuit::printNodeVoltages ()
-{
-	unsigned int i;
-
-	for (i = 0; i < this->N; ++i) {
-		std::cout << "V" << i+1 << " = " << this->vNode[i] << std::endl;
-	}
-}
-
 /* Calculate the node voltages using modified nodal analysis.
  * Returns 0 if the node voltages are successfully found, -1 if
  * either memory allocation failed or there is an illegal argument
@@ -137,6 +127,31 @@ Circuit::calcNodeVoltages ()
 	return err;
 }
 
+/* Return the voltage at node N */
+double
+Circuit::voltageAtNode (const unsigned int node)
+{
+	if (node <= N) {
+		return this->vNode[node];
+	}
+
+	else {
+		std::cerr << "Invalid node" << std::endl;
+		return 0;
+	}
+}
+
+/* Print the node voltages */
+void
+Circuit::printNodeVoltages ()
+{
+	unsigned int i;
+
+	for (i = 0; i < this->N; ++i) {
+		std::cout << "V" << i+1 << " = " << this->vNode[i] << std::endl;
+	}
+}
+
 /* Calculate the current between nodes n1 and n2 using the calculated node voltages.
  * calcNodeVoltages must be called before calling this function. */
 double
@@ -186,7 +201,7 @@ Circuit::calcBranchCurrent (const unsigned int n1, const unsigned int n2)
 			if (i == n1 - 1) {
 				continue;
 			}
-			
+
 			G12 += this->G[n1 - 1][i];
 		}
 	}
