@@ -32,14 +32,17 @@ Circuit
 		/* Class constructor */
 		Circuit (const unsigned int nodes, const double *cond, const double V, const unsigned int in);
 
-		/* Print the node voltages */
-		void printNodeVoltages ();
-
 		/* Used to calculate the node voltages */
 		int calcNodeVoltages ();
-		
+
+		/* Return the voltage at node N */
+		double voltageAtNode (const unsigned int node);
+
 		/* Calculate the current between nodes n1 and n2 */
 		double calcBranchCurrent (const unsigned int n1, const unsigned int n2);
+
+		/* Print the node voltages */
+		void printNodeVoltages ();
 
 	private:
 		unsigned int N; /* Number of nodes in the circuit, including ground */
