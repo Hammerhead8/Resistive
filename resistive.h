@@ -30,7 +30,7 @@ Circuit
 {
 	public:
 		/* Class constructor */
-		Circuit (const unsigned int nodes, const double *cond, const double V, const unsigned int in);
+		Circuit (const unsigned int nodes, const double *cond, const unsigned int sources, const double *V, const unsigned int *in);
 
 		/* Used to calculate the node voltages */
 		int calcNodeVoltages ();
@@ -44,11 +44,14 @@ Circuit
 		/* Print the node voltages */
 		void printNodeVoltages ();
 
+		void printGMatrix ();
+
 	private:
 		unsigned int N; /* Number of nodes in the circuit, including ground */
+		unsigned int Ns; /* Number of voltage sources */
 		std::vector<std::vector<double>> G; /* Conductance matrix */
-		double Vin; /* DC voltage source */
-		unsigned int inNode; /* Node where the input source is connected */
+		std::vector<double>Vin; /* DC voltage sources */
+		std::vector<unsigned int> inNode; /* Node where the input source is connected */
 
 		std::vector<double> vNode; /* Vector of node voltages */
 		std::vector<double> iBranch; /* Vector of branch currents */
