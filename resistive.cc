@@ -11,16 +11,23 @@
 
 /* Class constructor.
  * Set the values of N and Vin as well as create the resistance matrix */
-Circuit::Circuit (const unsigned int nodes, const double *cond, const double V, const unsigned int in)
+Circuit::Circuit (const unsigned int nodes, const double *cond, unsigned int sources, const double *V, const unsigned int *in)
 {
 	unsigned int i, j;
 
 	/* Set the values of N, Vin, and inNode. Also set the size of vNode. */
 	this->N = nodes;
-	this->Vin = V;
-	this->inNode = in;
+	this->Ns = sources;
+	this->Vin.resize (sources);
+	this->inNode.resize (sources);
 	this->vNode.resize (nodes);
 	this->G.resize (nodes);
+
+	/* Set the values of the DC sources */
+	for (i = 0; i < sources; ++i) {
+		Vin[i] = V[i];
+		inNode[i] = in[i];
+	}
 
 	/* Create the conductance matrix and
 	 * set the values in the matrix */
@@ -42,6 +49,7 @@ Circuit::calcNodeVoltages ()
 {
 	unsigned int i, j; /* Loop counters */
 	const unsigned int nodes = this->N;
+	unsigned int in;
 	double *gMatrix; /* Conductance matrix for the system of equations */
 	double *vVector; /* Vector for node voltages */
 	unsigned int gSize; /* Number of rows and columns in rMatrix */
@@ -65,29 +73,25 @@ Circuit::calcNodeVoltages ()
 
 	/* Fill gMatrix and vVector */
 	for (i = 0; i < nodes; ++i) {
-		/* If the voltage source is applied to node i, then
-		 * we need to set G_ij = 1 and the other elements in
-		 * the row to 0. */
-		if (this->inNode == i + 1) {
-			vVector[i] = this->Vin;
+		vVector[i] = 0;
 
-			for (j = 0; j < nodes; ++j) {
-				if (j == i) {
-					gMatrix[i * nodes + j] = 1;
-				}
-				else {
-					gMatrix[i * nodes + j] = 0;
-				}
+		for (j = 0; j < nodes; ++j) {
+			gMatrix[i * nodes + j] = -1 * this->G[i][j];
+		}
+	}
+
+	/* Set the non-zero values in vVector from vIn */
+	for (i = 0; i < this->Ns; ++i) {
+		in = this->inNode[i] - 1;
+		vVector[in] = this->Vin[i];
+
+		for (j = 0; j < nodes; j++) {
+			if (j == in) {
+				gMatrix[in * nodes + j] = 1;
 			}
 
-		}
-
-		/* Otherwise the G matrix is just copied. */
-		else {
-			vVector[i] = 0;
-
-			for (j = 0; j < nodes; ++j) {
-				gMatrix[i * nodes + j] = -1 * this->G[i][j];
+			else {
+				gMatrix[in * nodes + j] = 0;
 			}
 		}
 	}
@@ -99,7 +103,7 @@ Circuit::calcNodeVoltages ()
 
 	/* Check for errors */
 	if (err == 0) {
-		this->vNode;
+		//this->vNode;
 		for (i = 0; i < this->N; ++i) {
 			this->vNode[i] = vVector[i];
 		}
@@ -132,7 +136,7 @@ double
 Circuit::voltageAtNode (const unsigned int node)
 {
 	if (node <= N) {
-		return this->vNode[node];
+		return this->vNode[node - 1];
 	}
 
 	else {
@@ -219,4 +223,18 @@ Circuit::calcBranchCurrent (const unsigned int n1, const unsigned int n2)
 	I12 = (V1 - V2) * G12;
 
 	return I12;
+}
+
+void
+Circuit::printGMatrix ()
+{
+	unsigned int i, j;
+
+	for (i = 0; i < this->N; ++i) {
+		for (j = 0; j < this->N; ++j) {
+			std::cout << this->G[i][j] << "\t";
+		}
+
+		std::cout << std::endl;
+	}
 }
