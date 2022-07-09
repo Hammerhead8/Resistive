@@ -34,18 +34,19 @@ G = | -1   3  -1 |
 
 Using G as well as Vin = 5 and the fact that Vin is connected at node 1, we can call Resistive using
 ```
-#include <resistive.h>
+#include "resistive.h"
 
 int
 main ()
 {
   unsigned int nodes = 3;
   double G[9] = {1, -1, 0, -1, 3, -1, 0, -1, 2};
-  double vIn = 5;
+  unsigned int sources = 1;
+  double vIn[1] = {5};
   unsigned int in = 1;
 
   /* Create a circuit using the above values */
-  Circuit c (nodes, g, vIn, in);
+  Circuit c (nodes, g, sources, vIn, in);
 
   /* Calculate the node voltages of the circuit */
   c.calcNodeVoltages ();
