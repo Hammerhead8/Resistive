@@ -32,11 +32,16 @@ Circuit
 		/* Class constructor */
 		Circuit (const unsigned int nodes, const double *cond, const unsigned int sources, const double *V, const unsigned int *in);
 
+		void createResistMatrix (const unsigned int loops, const double *R, const double *loopVolt);
+
 		/* Used to calculate the node voltages */
 		int calcNodeVoltages ();
 
 		/* Return the voltage at node N */
 		double voltageAtNode (const unsigned int node);
+
+		/* Calculate the loop currents */
+		int calcLoopCurrents ();
 
 		/* Calculate the current between nodes n1 and n2 */
 		double calcBranchCurrent (const unsigned int n1, const unsigned int n2);
@@ -44,16 +49,22 @@ Circuit
 		/* Print the node voltages */
 		void printNodeVoltages ();
 
+		/* Print the loop currents */
+		void printLoopCurrents ();
+
 		void printGMatrix ();
 
 	private:
 		unsigned int N; /* Number of nodes in the circuit, not including ground */
 		unsigned int Ns; /* Number of voltage sources */
+		unsigned int Nl; /* Number of loops */
 		std::vector<std::vector<double>> G; /* Conductance matrix */
+		std::vector<std::vector<double>> R; /* Resistance matrix used for calculating loop currents */
 		std::vector<double>Vin; /* DC voltage sources */
 		std::vector<unsigned int> inNode; /* Node where the input source is connected */
 
 		std::vector<double> vNode; /* Vector of node voltages */
+		std::vector<double> vLoop; /* Vector of voltages around each loop */
 		std::vector<double> iBranch; /* Vector of branch currents */
 };
 

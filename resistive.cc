@@ -40,6 +40,37 @@ Circuit::Circuit (const unsigned int nodes, const double *cond, unsigned int sou
 	}
 }
 
+/* Create a resistance matrix. This function needs to be called before
+ * using the function calcLoopCurrents.
+ * loops is the number of loops in the circuit.
+ * R is the resistance matrix
+ * vLoop is a vector of the total voltage sources around the loop. In other words, it is the
+ * right-hand side of the system of mesh equations. */
+void
+Circuit::createResistMatrix (const unsigned int loops, const double *R, const double *loopVolt)
+{
+	unsigned int i, j;
+
+	this->Nl = loops;
+
+	this->R.resize (loops);
+	this->vLoop.resize (loops);
+	this->iBranch.resize (loops);
+
+	for (i = 0; i < loops; ++i) {
+		this->R[i].resize (loops);
+
+		/* Set the value for the voltage vector */
+		this->vLoop[i] = loopVolt[i];
+
+		/* Set the values in the resistance matrix */
+		for (j = 0; j < loops; ++j) {
+			this->R[i][j] = R[i * loops + j];
+		}
+	}
+}
+
+
 /* Calculate the node voltages using modified nodal analysis.
  * Returns 0 if the node voltages are successfully found, -1 if
  * either memory allocation failed or there is an illegal argument
@@ -156,6 +187,60 @@ Circuit::printNodeVoltages ()
 	}
 }
 
+/* Calculate the loop currents using mesh analysis. */
+int
+Circuit::calcLoopCurrents ()
+{
+	unsigned int i, j;
+	double *resist;
+	double *vVector;
+	int ipvt[4];
+	int err;
+
+	resist = new double [this->Nl * this->Nl];
+	vVector = new double [this->Nl];
+
+	for (i = 0; i < this->Nl; ++i) {
+		vVector[i] = this->vLoop[i];
+
+		for (j = 0; j < this->Nl; ++j) {
+			resist[i * this->Nl + j] = this->R[i][j];
+		}
+	}
+
+	err = LAPACKE_dgesv (LAPACK_ROW_MAJOR, this->Nl, 1, resist, this->Nl, ipvt, vVector, 1);
+
+	/* If no errors occured */
+	if (err == 0) {
+		for (i = 0; i < this->Nl; ++i) {
+			this->iBranch[i] = vVector[i];
+		}
+
+		delete vVector;
+		delete resist;
+
+		return 0;
+	}
+
+	else if (err < 0) {
+		std::cerr << "Value of argument " << -1 * err << " is illegal" << std::endl;
+
+		delete vVector;
+		delete resist;
+
+		return err;
+	}
+
+	else {
+		std::cerr << "Resistance matrix is singular" << std::endl;
+
+		delete vVector;
+		delete resist;
+
+		return err;
+	}
+}
+
 /* Calculate the current between nodes n1 and n2 using the calculated node voltages.
  * calcNodeVoltages must be called before calling this function. */
 double
@@ -223,6 +308,19 @@ Circuit::calcBranchCurrent (const unsigned int n1, const unsigned int n2)
 	I12 = (V1 - V2) * G12;
 
 	return I12;
+}
+
+/* Print the loop currents */
+void
+Circuit::printLoopCurrents ()
+{
+	unsigned int i;
+
+	for (i = 0; i < this->Nl; ++i) {
+		std::cout << "I" << i + 1 << " = " << this->iBranch[i] << std::endl;
+	}
+
+	std::cout << std::endl;
 }
 
 void
