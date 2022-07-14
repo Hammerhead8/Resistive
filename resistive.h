@@ -47,7 +47,7 @@ Circuit
 		void printGMatrix ();
 
 	private:
-		unsigned int N; /* Number of nodes in the circuit, including ground */
+		unsigned int N; /* Number of nodes in the circuit, not including ground */
 		unsigned int Ns; /* Number of voltage sources */
 		std::vector<std::vector<double>> G; /* Conductance matrix */
 		std::vector<double>Vin; /* DC voltage sources */
