@@ -198,7 +198,15 @@ Circuit::calcLoopCurrents ()
 	int err;
 
 	resist = new double [this->Nl * this->Nl];
+	if (resist == 0x00) {
+		return -1;
+	}
+	
 	vVector = new double [this->Nl];
+	if (vVector == 0x00) {
+		delete resist;
+		return -1;
+	}
 
 	for (i = 0; i < this->Nl; ++i) {
 		vVector[i] = this->vLoop[i];
