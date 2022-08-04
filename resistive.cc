@@ -36,6 +36,13 @@ Circuit::Circuit (const unsigned int nodes, const double *cond, unsigned int sou
 
 		for (j = 0; j < nodes; ++j) {
 			this->G[i][j] = cond[i * nodes + j];
+			
+			if (i != j) {
+				if (this->G[i][j] > 0) {
+					std::cerr << "G[" << i+1 << "][" << j+1 << "] is non-negative. Correcting." << std::endl;
+					this->G[i][j] *= -1;
+				}
+			}
 		}
 	}
 }
@@ -66,6 +73,13 @@ Circuit::createResistMatrix (const unsigned int loops, const double *R, const do
 		/* Set the values in the resistance matrix */
 		for (j = 0; j < loops; ++j) {
 			this->R[i][j] = R[i * loops + j];
+			
+			if (i != j) {
+				if (this->R[i][j] > 0) {
+					std::cerr << "R[" << i+1 << "][" << j+1 << "] is non-negative. Correcting." << std::endl;
+					this->R[i][j] *= -1;
+				}
+			}
 		}
 	}
 }
