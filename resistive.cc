@@ -211,17 +211,22 @@ Circuit::calcLoopCurrents ()
 	int ipvt[4];
 	int err;
 
+	/* Create a copy of the Resistance matrix since it will be overwritten
+	 * in the function LAPACKE_dgesv below */
 	resist = new double [this->Nl * this->Nl];
 	if (resist == 0x00) {
 		return -1;
 	}
 	
+	/* Create a copy of the voltage vector since it will also be overwritten
+	 * by LAPACKE_dgesv */
 	vVector = new double [this->Nl];
 	if (vVector == 0x00) {
 		delete resist;
 		return -1;
 	}
 
+	/* Copy the values */
 	for (i = 0; i < this->Nl; ++i) {
 		vVector[i] = this->vLoop[i];
 
@@ -230,6 +235,7 @@ Circuit::calcLoopCurrents ()
 		}
 	}
 
+	/* Solve the system of equations to find the loop currents */
 	err = LAPACKE_dgesv (LAPACK_ROW_MAJOR, this->Nl, 1, resist, this->Nl, ipvt, vVector, 1);
 
 	/* If no errors occured */
