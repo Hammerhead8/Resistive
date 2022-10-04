@@ -1,12 +1,7 @@
 # Resistive
-Resistive is a C++ library for calculating the node voltages and branch currents in purely resistive cicuits.
-The user provides the number of nodes in the circuit, a conductance matrix, and the value and location of a DC
-input voltage source. Resistive using nodal analysis to calculate the node voltages. Using these, it can calculate
-the branch currents.
+Resistive is a C++ library for calculating the node voltages in DC and AC circuits. The syntax is similar to SPICE, where the user provides the nodes where the element is connected and its value. This means that the user does not need to calculate the conductance matrix themselves. Resistive uses nodal analysis to calculate the node voltages.
 
-It is also possible to calculate the loop currents using mesh analysis. The user provides a resistance matrix and a vector of the loop voltages, which will be illustrated in the example below.
-
-Currently, Resistive supports multiple DC voltage sources, but only if the sources have a terminal connected to ground.
+Currently, Resistive supports DC and AC sources, but only if all sources are of the same frequency and all sources need to have one node connected to ground.
 
 # Dependencies
 The only external dependancy is LAPACKE. If you're using Linux then it should be available through your software
