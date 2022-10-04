@@ -14,11 +14,12 @@
 
 /* Class constructor.
  * An empty circuit is created and all variables are initialized. */
-Circuit::Circuit ()
+Circuit::Circuit (double freq)
 {
-	/* Set the values of N and Ns to zero */
+	/* Set the values of N and Ns to zero and w to the circuit frequency */
 	this->N = 0;
 	this->Ns = 0;
+	this->w = freq;
 
 	/* Create the vectors Vin and inNode */
 	this->Vin.resize (0);
@@ -30,12 +31,11 @@ Circuit::Circuit ()
 }
 
 /* Add a DC voltage source */
-int
+void
 Circuit::addSource (unsigned int n1, unsigned int n2, double value)
 {
 	/* If neither of the nodes is zero then we cannot proceed */
 	if (n1 != 0 && n2 != 0) {
-//		std::cerr << "Voltage source must have one node connected to ground." << std::endl;
 		throw std::runtime_error ("Voltage source must have one node connected to ground.");
 	}
 
@@ -57,12 +57,10 @@ Circuit::addSource (unsigned int n1, unsigned int n2, double value)
 
 	this->Vin[this->Ns-1] = value;
 	this->inNode[this->Ns-1] = n1;
-
-	return 0;
 }
 
 /* Add a resistor to the circuit and update the conductance matrix */
-int
+void
 Circuit::addResistor (unsigned int n1, unsigned int n2, double value)
 {
 	unsigned int i;
@@ -70,13 +68,11 @@ Circuit::addResistor (unsigned int n1, unsigned int n2, double value)
 
 	/* Check if n1 == n2. If so then throw an exception. */
 	if (n1 == n2) {
-//		std::cerr << "Positive and negative terminal of a resistor must be connected to different nodes." << std::endl;
 		throw std::runtime_error ("Positive and negative terminal of a resistor must be connected to different nodes.");
 	}
 
-	/* If the resistance is negative then we cannot proceed */
+	/* If the resistance is negative then we cannot proceed so throw an exception */
 	if (value <= 0) {
-//		std::cerr << "Zero or negative resistance between nodes " << n1 << " and " << n2 << " is not valid." << std::endl;
 		throw std::runtime_error (std::string ("Zero or negative resistance between nodes " + std::to_string (n1) + " and " + std::to_string (n2)));
 	}
 
@@ -87,10 +83,10 @@ Circuit::addResistor (unsigned int n1, unsigned int n2, double value)
 	if ((n1 > this->N) || (n2 > this->N)) {
 		this->N = max (n1, n2);
 	}
-	
+
 	if (this->N > this->G.size ()) {
 		this->G.resize (this->N);
-		
+
 		for (i = 0; i < this->G.size (); ++i) {
 			this->G[i].resize (this->N);
 		}
@@ -118,14 +114,158 @@ Circuit::addResistor (unsigned int n1, unsigned int n2, double value)
 		this->G[n1-1][n2-1] -= (1 / value);
 		this->G[n2-1][n1-1] -= (1 / value);
 	}
-	 
-	return 0;
 }
 
+/* Add an inductor between nodes n1 and n2 */
+void
+Circuit::addInductor (unsigned int n1, unsigned int n2, double value)
+{
+	unsigned int i;
+	
+	/* Check if the circuit frequency is 0 (DC).
+	 * If so we can't add the inductor */
+	if (this->w == 0) {
+		throw std::runtime_error ("Cannot add an inductor to a DC circuit.");
+	}
+	
+	/* Check if n1 == n2. If so then throw an exception. */
+	else if (n1 == n2) {
+		throw std::runtime_error ("Positive and negative terminal of an inductor must be connected to different nodes.");
+	}
+
+	/* If the resistance is negative then we cannot proceed so throw an exception */
+	else if (value <= 0) {
+		throw std::runtime_error (std::string ("Zero or negative inductance between nodes " + std::to_string (n1) + " and " + std::to_string (n2)));
+	}
+
+	/* Now update the conductance matrix.
+	 * First check if the larger node is part of the circuit.
+	 * If not then resize the conductance matrix so it is.
+	 * If it is then the first node is also in the current circuit. */
+	if ((n1 > this->N) || (n2 > this->N)) {
+		this->N = max (n1, n2);
+	}
+
+	if (this->N > this->G.size ()) {
+		this->G.resize (this->N);
+
+		for (i = 0; i < this->G.size (); ++i) {
+			this->G[i].resize (this->N);
+		}
+	}
+	
+	/* Calculate the impedance of the inductor */
+	std::complex Z (0.0, this->w * value);
+
+	/* Add the new resistor to the conductance matrix.
+	 * If one of the nodes is 0, meaning ground, then we
+	 * only need to add it to its corresponding diagonal element. */
+	if (n2 == 0) {
+		this->G[n1-1][n1-1] += (1.0 / Z);
+	}
+
+	else if (n1 == 0) {
+		this->G[n2-1][n2-1] += (1.0 / Z);
+	}
+
+	/* Otherwise we need to add it to multiple diagonals and two
+	 * off-diagonal elements. */
+	else {
+		/* First add it to the diagonal elements */
+		this->G[n1-1][n1-1] += (1.0 / Z);
+		this->G[n2-1][n2-1] += (1.0 / Z);
+
+		/* Now subtract it from the off-diagonal elements */
+		this->G[n1-1][n2-1] -= (1.0 / Z);
+		this->G[n2-1][n1-1] -= (1.0 / Z);
+	}
+}
+
+/* Add a capacitor between nodes n1 and n2 */
+void
+Circuit::addCapacitor (unsigned int n1, unsigned int n2, double value)
+{
+	unsigned int i;
+	
+	/* Check if the circuit frequency is 0 (DC).
+	 * If it is then we can't add the capacitor so throw an exception. */
+	if (this->w == 0) {
+		throw std::runtime_error ("Cannot add a capacitor to a DC circuit.");
+	}
+	
+	/* Check if n1 == n2. If so then throw an exception. */
+	else if (n1 == n2) {
+		throw std::runtime_error ("Positive and negative terminal of a capacitor must be connected to different nodes.");
+	}
+
+	/* If the resistance is negative then we cannot proceed so throw an exception */
+	else if (value <= 0) {
+		throw std::runtime_error (std::string ("Zero or negative capacitance between nodes " + std::to_string (n1) + " and " + std::to_string (n2)));
+	}
+	
+	/* Now update the conductance matrix.
+	 * First check if the larger node is part of the circuit.
+	 * If not then resize the conductance matrix so it is.
+	 * If it is then the first node is also in the current circuit. */
+	if ((n1 > this->N) || (n2 > this->N)) {
+		this->N = max (n1, n2);
+	}
+
+	if (this->N > this->G.size ()) {
+		this->G.resize (this->N);
+
+		for (i = 0; i < this->G.size (); ++i) {
+			this->G[i].resize (this->N);
+		}
+	}
+	
+	/* Calculate the impedance of the capacitor */
+	std::complex Z (0.0, -1 / (this->w * value));
+
+	/* Add the new resistor to the conductance matrix.
+	 * If one of the nodes is 0, meaning ground, then we
+	 * only need to add it to its corresponding diagonal element. */
+	if (n2 == 0) {
+		this->G[n1-1][n1-1] += (1.0 / Z);
+	}
+
+	else if (n1 == 0) {
+		this->G[n2-1][n2-1] += (1.0 / Z);
+	}
+
+	/* Otherwise we need to add it to multiple diagonals and two
+	 * off-diagonal elements. */
+	else {
+		/* First add it to the diagonal elements */
+		this->G[n1-1][n1-1] += (1.0 / Z);
+		this->G[n2-1][n2-1] += (1.0 / Z);
+
+		/* Now subtract it from the off-diagonal elements */
+		this->G[n1-1][n2-1] -= (1.0 / Z);
+		this->G[n2-1][n1-1] -= (1.0 / Z);
+	}
+}	
 
 /* Calculate the node voltages */
 int
 Circuit::calcNodeVoltages ()
+{
+	int retVal;
+	
+	if (this->w == 0) {
+		retVal = this->calcDCNodes ();
+	}
+	
+	else {
+		retVal = this->calcACNodes ();
+	}
+	
+	return retVal;
+}
+
+/* Calculate node voltages for DC circuits */
+int
+Circuit::calcDCNodes ()
 {
 	unsigned int i, j; /* Loop counters */
 	unsigned int in;
@@ -158,7 +298,7 @@ Circuit::calcNodeVoltages ()
 		vVector[i] = 0;
 
 		for (j = 0; j < nodes; ++j) {
-			gMatrix[i * nodes + j] = this->G[i][j];
+			gMatrix[i * nodes + j] = this->G[i][j].real ();
 		}
 	}
 
@@ -218,6 +358,84 @@ Circuit::calcNodeVoltages ()
 	return err;
 }
 
+/* Calculate the node voltages for AC circuits */
+int
+Circuit::calcACNodes ()
+{
+	unsigned int i, j, k; /* Loop counters */
+	unsigned int in;
+	const unsigned int nodes = this->N; /* Number of nodes */
+	const unsigned int sources = this->Ns; /* Number of sources */
+	const unsigned int gSize = nodes * nodes;
+	const unsigned int vSize = nodes;
+	std::complex<double> gMatrix[gSize];
+	std::complex<double> vVector[vSize];
+//	double gMatrix[2 * gSize]; /* Copy of the conductance matrix */
+//	double vVector[2 * vSize] = {0}; /* Copy of the source vector */
+	lapack_int ipvt[nodes]; /* Needed by LAPACKE_dgesv to find the node voltages */
+	lapack_int err; /* Returned value from LAPACKE_dgesv */	
+
+	/* Fill gMatrix and vVector */
+	for (i = 0; i < nodes; ++i) {
+		vVector[i] = std::complex (0, 0);
+		
+		for (j = 0; j < nodes; ++j) {
+			gMatrix[i * nodes + j] = std::complex (this->G[i][j].real (), this->G[i][j].imag ());
+		}
+	}
+
+	/* Set the non-zero values in vVector from vIn */
+	for (i = 0; i < sources; ++i) {
+		in = this->inNode[i] - 1;
+		vVector[in] = this->Vin[i];
+
+		/* Set the diagonal element to 1 and the others to zero
+		 * in the conductance matrix for the row corresponding to
+		 * the source */
+		for (j = 0; j < nodes; ++j) {
+			if (j == in) {
+				gMatrix[in * nodes + j] = 1;
+			}
+			
+			else {
+				gMatrix[in * nodes + j] = 0;
+			}
+		}
+	}
+
+	/* Allocate vNode */
+	this->vNode.resize (nodes);
+
+	/* Now that gMatrix and vVector are filled we can calculate the nodes voltages
+	 * by solving the system of equations. The result is stored in vVector. */
+//	err = LAPACKE_zgesv (LAPACK_ROW_MAJOR, nodes, 1, gMatrix, nodes, ipvt, vVector, 1);
+	err = LAPACKE_zgesv (LAPACK_ROW_MAJOR, nodes, 1, reinterpret_cast<lapack_complex_double*>(gMatrix), nodes, ipvt, reinterpret_cast<lapack_complex_double*>(vVector), 1);
+
+	/* Check for errors */
+	if (err == 0) {
+		for (i = 0; i < nodes; ++i) {
+			this->vNode[i] = vVector[i];
+		}
+	}
+
+	else if (err < 0) {
+		std::cerr << "Argument " << -1 * err << " is invalid." << std::endl;
+		for (i = 0; i < nodes; ++i) {
+			this->vNode[i] = NAN;
+		}
+	}
+
+	else {
+		std::cerr << "Conductance matrix is singular." << std::endl;
+		for (i = 0; i < nodes; ++i) {
+			this->vNode[i] = NAN;
+		}
+	}
+
+	/* Return the status of LAPACKE_zgesv */
+	return err;
+}	
+
 /* Print the voltages at all nodes */
 void
 Circuit::printNodeVoltages ()
@@ -225,7 +443,32 @@ Circuit::printNodeVoltages ()
 	unsigned int i;
 
 	for (i = 0; i < this->N; ++i) {
-		std::cout << "V" << i + 1 << " = " << this->vNode[i] << std::endl;
+		if (this->vNode[i].real () < 0) {
+			if (this->vNode[i].imag () == 0) {
+				std::cout << "V" << i + 1 << " = " << this->vNode[i].real () << std::endl;
+			}
+			
+			else if (this->vNode[i].imag () < 0) {
+				std::cout << "V" << i + 1 << " = " << this->vNode[i].real () << this->vNode[i].imag () << "j" << std::endl;
+			}
+			
+			else {
+				std::cout << "V" << i + 1 << " = " << this->vNode[i].real () << "+" << this->vNode[i].imag () << "j" << std::endl;
+			}
+		}
+
+		else {
+			if (this->vNode[i].imag () == 0) {
+				std::cout << "V" << i + 1 << " = " << this->vNode[i].real () << std::endl;
+			}
+			
+			else if (this->vNode[i].imag () < 0) {
+				std::cout << "V" << i + 1 << " = " << this->vNode[i].real () << this->vNode[i].imag () << "j" << std::endl;
+			}
+			
+			else {
+				std::cout << "V" << i + 1 << " = " << this->vNode[i].real () << "+" << this->vNode[i].imag () << "j" << std::endl;
+			}
+		}
 	}
 }
-
