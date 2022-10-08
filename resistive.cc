@@ -368,10 +368,8 @@ Circuit::calcACNodes ()
 	const unsigned int sources = this->Ns; /* Number of sources */
 	const unsigned int gSize = nodes * nodes;
 	const unsigned int vSize = nodes;
-	std::complex<double> gMatrix[gSize];
-	std::complex<double> vVector[vSize];
-//	double gMatrix[2 * gSize]; /* Copy of the conductance matrix */
-//	double vVector[2 * vSize] = {0}; /* Copy of the source vector */
+	std::complex<double> gMatrix[gSize]; /* Copy of the conductance matrix */
+	std::complex<double> vVector[vSize]; /* Copy of the source vector */
 	lapack_int ipvt[nodes]; /* Needed by LAPACKE_dgesv to find the node voltages */
 	lapack_int err; /* Returned value from LAPACKE_dgesv */	
 
@@ -380,7 +378,7 @@ Circuit::calcACNodes ()
 		vVector[i] = std::complex (0, 0);
 		
 		for (j = 0; j < nodes; ++j) {
-			gMatrix[i * nodes + j] = std::complex (this->G[i][j].real (), this->G[i][j].imag ());
+			gMatrix[i * nodes + j] = this->G[i][j];
 		}
 	}
 
@@ -407,8 +405,11 @@ Circuit::calcACNodes ()
 	this->vNode.resize (nodes);
 
 	/* Now that gMatrix and vVector are filled we can calculate the nodes voltages
-	 * by solving the system of equations. The result is stored in vVector. */
-//	err = LAPACKE_zgesv (LAPACK_ROW_MAJOR, nodes, 1, gMatrix, nodes, ipvt, vVector, 1);
+	 * by solving the system of equations. The result is stored in vVector.
+	 *
+	 * gMatrix and vVector are complex, but C++ can't use C's complex numbers.
+	 * However, they are interoperable, so we can recast std::complex to
+	 * lapack_complex_double, which is an alias for the C complex double type. */
 	err = LAPACKE_zgesv (LAPACK_ROW_MAJOR, nodes, 1, reinterpret_cast<lapack_complex_double*>(gMatrix), nodes, ipvt, reinterpret_cast<lapack_complex_double*>(vVector), 1);
 
 	/* Check for errors */
@@ -440,34 +441,83 @@ Circuit::calcACNodes ()
 void
 Circuit::printNodeVoltages ()
 {
+	double mag;
+	double angle;
+	const double pi = 3.14159265;
 	unsigned int i;
 
 	for (i = 0; i < this->N; ++i) {
+		/* If the real part of the voltage is negative we print it normally */
 		if (this->vNode[i].real () < 0) {
+			/* Check if the imaginary part is zero. If it is then we only need to print the real part. */
 			if (this->vNode[i].imag () == 0) {
-				std::cout << "V" << i + 1 << " = " << this->vNode[i].real () << std::endl;
+				std::cout << "V" << i + 1 << " = " << this->vNode[i].real () << "<0" << std::endl;
 			}
-			
+
+			/* If the imaginary part is negative then we can just print both parts */
 			else if (this->vNode[i].imag () < 0) {
-				std::cout << "V" << i + 1 << " = " << this->vNode[i].real () << this->vNode[i].imag () << "j" << std::endl;
+				/* Calculate the magnitude of the voltage */
+				mag = sqrt (pow (this->vNode[i].real (), 2) + pow (this->vNode[i].imag (), 2));
+
+				/* Calculate the phase shift of the voltage */
+				angle = pi + atan (this->vNode[i].imag () / this->vNode[i].real ());
+
+				/* Convert the angle from radians to degrees */
+				angle *= (180 / pi);
+
+				std::cout << "V" << i + 1 << " = " << mag << "<" << angle << std::endl;
 			}
-			
+
+			/* If the imaginary part is positive then we need to print a plus sign before printing the imaginary part.
+			 * This is because we don't use format specifiers with std::cout. */
 			else {
-				std::cout << "V" << i + 1 << " = " << this->vNode[i].real () << "+" << this->vNode[i].imag () << "j" << std::endl;
+				/* Calculate the magnitude of the voltage */
+				mag = sqrt (pow (this->vNode[i].real (), 2) + pow (this->vNode[i].imag (), 2));
+
+				/* Calculate the phase shift of the voltage */
+				angle = pi - atan (this->vNode[i].imag () / this->vNode[i].real ());
+
+				/* Convert the angle from radians to degrees */
+				angle *= (180 / pi);
+
+				std::cout << "V" << i + 1 << " = " << mag << "<" << angle << std::endl;
 			}
 		}
 
+		/* Otherwise the real part is positive so we need to add another space after the equal sign */
 		else {
+			/* Check if the imaginary part is zero. If it is then we only need to print the real part. */
 			if (this->vNode[i].imag () == 0) {
-				std::cout << "V" << i + 1 << " = " << this->vNode[i].real () << std::endl;
+				std::cout << "V" << i + 1 << " = " << this->vNode[i].real () << "<0" << std::endl;
 			}
-			
+
+			/* If the imaginary part is negative then we can just print both parts */
 			else if (this->vNode[i].imag () < 0) {
-				std::cout << "V" << i + 1 << " = " << this->vNode[i].real () << this->vNode[i].imag () << "j" << std::endl;
+				/* Calculate the magnitude of the voltage */
+				mag = sqrt (pow (this->vNode[i].real (), 2) + pow (this->vNode[i].imag (), 2));
+
+				/* Calculate the phase shift of the voltage */
+				angle = atan (this->vNode[i].imag () / this->vNode[i].real ());
+
+				/* Convert the angle from radians to degrees */
+				angle *= (180 / pi);
+
+				std::cout << "V" << i + 1 << " = " << mag << "<" << angle << std::endl;
 			}
-			
+
+			/* If the imaginary part is positive then we need to print a plus sign before printing the imaginary part.
+			 * This is because we don't use format specifiers with std::cout. */
 			else {
-				std::cout << "V" << i + 1 << " = " << this->vNode[i].real () << "+" << this->vNode[i].imag () << "j" << std::endl;
+				/* Calculate the magnitude of the voltage */
+				mag = sqrt (pow (this->vNode[i].real (), 2) + pow (this->vNode[i].imag (), 2));
+
+				/* Calculate the phase shift of the voltage */
+				angle = atan (this->vNode[i].imag () / this->vNode[i].real ());
+
+				/* Convert the angle from radians to degrees */
+				angle *= (180 / pi);
+
+				std::cout << "V" << i + 1 << " = " << mag << "<" << angle << std::endl;
 			}
 		}
 	}
