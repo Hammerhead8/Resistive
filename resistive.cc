@@ -1,110 +1,287 @@
-/* resistive.cc
- * Function definitions for Resistive.
+/* Function definitions for the reimplementation of Resistive.
  *
- * Analysis is done by nodal analysis
- * using a conductance matrix */
+ * Node voltages are found using nodal analysis with a conductance matrix */
 
-#include "resistive.h"
+#include "resistive2.h"
 #include <iostream>
-#include <cmath> /* For nan */
-#include <lapacke.h> /* For dgesv */
+#include <string>
+#include <exception>
+#include <cmath>
+#include <lapacke.h>
+
+/* Return the larger of two integers */
+#define max(x, y) (x > y ? x : y)
 
 /* Class constructor.
- * Set the values of N and Vin as well as create the resistance matrix */
-Circuit::Circuit (const unsigned int nodes, const double *cond, unsigned int sources, const double *V, const unsigned int *in)
+ * An empty circuit is created and all variables are initialized. */
+Circuit::Circuit (double freq)
 {
-	unsigned int i, j;
+	/* Set the values of N and Ns to zero and w to the circuit frequency */
+	this->N = 0;
+	this->Ns = 0;
+	this->w = freq;
 
-	/* Set the values of N, Vin, and inNode. Also set the size of vNode. */
-	this->N = nodes;
-	this->Ns = sources;
-	this->Vin.resize (sources);
-	this->inNode.resize (sources);
-	this->vNode.resize (nodes);
-	this->G.resize (nodes);
+	/* Create the vectors Vin and inNode */
+	this->Vin.resize (0);
+	this->inNode.resize (0);
 
-	/* Set the values of the DC sources */
-	for (i = 0; i < sources; ++i) {
-		Vin[i] = V[i];
-		inNode[i] = in[i];
-	}
-
-	/* Create the conductance matrix and
-	 * set the values in the matrix */
-	for (i = 0; i < nodes; ++i) {
-		this->G[i].resize (nodes);
-
-		for (j = 0; j < nodes; ++j) {
-			this->G[i][j] = cond[i * nodes + j];
-			
-			if (i != j) {
-				if (this->G[i][j] > 0) {
-					std::cerr << "G[" << i+1 << "][" << j+1 << "] is non-negative. Correcting." << std::endl;
-					this->G[i][j] *= -1;
-				}
-			}
-		}
-	}
+	/* Create the conductance matrix */
+	this->G.resize (1);
+	this->G[0].resize (1);
 }
 
-/* Create a resistance matrix. This function needs to be called before
- * using the function calcLoopCurrents.
- * loops is the number of loops in the circuit.
- * R is the resistance matrix
- * vLoop is a vector of the total voltage sources around the loop. In other words, it is the
- * right-hand side of the system of mesh equations. */
+/* Add a DC voltage source */
 void
-Circuit::createResistMatrix (const unsigned int loops, const double *R, const double *loopVolt)
+Circuit::addSource (unsigned int n1, unsigned int n2, double value)
 {
-	unsigned int i, j;
+	/* If neither of the nodes is zero then we cannot proceed */
+	if (n1 != 0 && n2 != 0) {
+		throw std::runtime_error ("Voltage source must have one node connected to ground.");
+	}
 
-	this->Nl = loops;
+	/* Make n1 the larger node and n2 the ground */
+	if (n1 == 0) {
+		n1 = n2;
+		n2 = 0;
+		value *= -1;
+	}
 
-	this->R.resize (loops);
-	this->vLoop.resize (loops);
-	this->iBranch.resize (loops);
+	/* Increment the value of Ns, which is the number of sources in the circuit */
+	this->Ns++;
 
-	for (i = 0; i < loops; ++i) {
-		this->R[i].resize (loops);
+	/* Now add the source to the Vin vector and update the inNode vector */
+	this->Vin.resize (this->Ns);
 
-		/* Set the value for the voltage vector */
-		this->vLoop[i] = loopVolt[i];
+	/* Resize inNode */
+	this->inNode.resize (this->Ns);
 
-		/* Set the values in the resistance matrix */
-		for (j = 0; j < loops; ++j) {
-			this->R[i][j] = R[i * loops + j];
-			
-			if (i != j) {
-				if (this->R[i][j] > 0) {
-					std::cerr << "R[" << i+1 << "][" << j+1 << "] is non-negative. Correcting." << std::endl;
-					this->R[i][j] *= -1;
-				}
-			}
+	this->Vin[this->Ns-1] = value;
+	this->inNode[this->Ns-1] = n1;
+}
+
+/* Add a resistor to the circuit and update the conductance matrix */
+void
+Circuit::addResistor (unsigned int n1, unsigned int n2, double value)
+{
+	unsigned int i;
+	unsigned int temp;
+
+	/* Check if n1 == n2. If so then throw an exception. */
+	if (n1 == n2) {
+		throw std::runtime_error ("Positive and negative terminal of a resistor must be connected to different nodes.");
+	}
+
+	/* If the resistance is negative then we cannot proceed so throw an exception */
+	if (value <= 0) {
+		throw std::runtime_error (std::string ("Zero or negative resistance between nodes " + std::to_string (n1) + " and " + std::to_string (n2)));
+	}
+
+	/* Now update the conductance matrix.
+	 * First check if the larger node is part of the circuit.
+	 * If not then resize the conductance matrix so it is.
+	 * If it is then the first node is also in the current circuit. */
+	if ((n1 > this->N) || (n2 > this->N)) {
+		this->N = max (n1, n2);
+	}
+
+	if (this->N > this->G.size ()) {
+		this->G.resize (this->N);
+
+		for (i = 0; i < this->G.size (); ++i) {
+			this->G[i].resize (this->N);
 		}
+	}
+
+	/* Add the new resistor to the conductance matrix.
+	 * If one of the nodes is 0, meaning ground, then we
+	 * only need to add it to its corresponding diagonal element. */
+	if (n2 == 0) {
+		this->G[n1-1][n1-1] += (1 / value);
+	}
+
+	else if (n1 == 0) {
+		this->G[n2-1][n2-1] += (1 / value);
+	}
+
+	/* Otherwise we need to add it to multiple diagonals and two
+	 * off-diagonal elements. */
+	else {
+		/* First add it to the diagonal elements */
+		this->G[n1-1][n1-1] += (1 / value);
+		this->G[n2-1][n2-1] += (1 / value);
+
+		/* Now subtract it from the off-diagonal elements */
+		this->G[n1-1][n2-1] -= (1 / value);
+		this->G[n2-1][n1-1] -= (1 / value);
 	}
 }
 
+/* Add an inductor between nodes n1 and n2 */
+void
+Circuit::addInductor (unsigned int n1, unsigned int n2, double value)
+{
+	unsigned int i;
+	
+	/* Check if the circuit frequency is 0 (DC).
+	 * If so we can't add the inductor */
+	if (this->w == 0) {
+		throw std::runtime_error ("Cannot add an inductor to a DC circuit.");
+	}
+	
+	/* Check if n1 == n2. If so then throw an exception. */
+	else if (n1 == n2) {
+		throw std::runtime_error ("Positive and negative terminal of an inductor must be connected to different nodes.");
+	}
 
-/* Calculate the node voltages using modified nodal analysis.
- * Returns 0 if the node voltages are successfully found, -1 if
- * either memory allocation failed or there is an illegal argument
- * to LAPACKE_dgesv, or 1 if the conductance matrix is signular. */
+	/* If the resistance is negative then we cannot proceed so throw an exception */
+	else if (value <= 0) {
+		throw std::runtime_error (std::string ("Zero or negative inductance between nodes " + std::to_string (n1) + " and " + std::to_string (n2)));
+	}
+
+	/* Now update the conductance matrix.
+	 * First check if the larger node is part of the circuit.
+	 * If not then resize the conductance matrix so it is.
+	 * If it is then the first node is also in the current circuit. */
+	if ((n1 > this->N) || (n2 > this->N)) {
+		this->N = max (n1, n2);
+	}
+
+	if (this->N > this->G.size ()) {
+		this->G.resize (this->N);
+
+		for (i = 0; i < this->G.size (); ++i) {
+			this->G[i].resize (this->N);
+		}
+	}
+	
+	/* Calculate the impedance of the inductor */
+	std::complex Z (0.0, this->w * value);
+
+	/* Add the new resistor to the conductance matrix.
+	 * If one of the nodes is 0, meaning ground, then we
+	 * only need to add it to its corresponding diagonal element. */
+	if (n2 == 0) {
+		this->G[n1-1][n1-1] += (1.0 / Z);
+	}
+
+	else if (n1 == 0) {
+		this->G[n2-1][n2-1] += (1.0 / Z);
+	}
+
+	/* Otherwise we need to add it to multiple diagonals and two
+	 * off-diagonal elements. */
+	else {
+		/* First add it to the diagonal elements */
+		this->G[n1-1][n1-1] += (1.0 / Z);
+		this->G[n2-1][n2-1] += (1.0 / Z);
+
+		/* Now subtract it from the off-diagonal elements */
+		this->G[n1-1][n2-1] -= (1.0 / Z);
+		this->G[n2-1][n1-1] -= (1.0 / Z);
+	}
+}
+
+/* Add a capacitor between nodes n1 and n2 */
+void
+Circuit::addCapacitor (unsigned int n1, unsigned int n2, double value)
+{
+	unsigned int i;
+	
+	/* Check if the circuit frequency is 0 (DC).
+	 * If it is then we can't add the capacitor so throw an exception. */
+	if (this->w == 0) {
+		throw std::runtime_error ("Cannot add a capacitor to a DC circuit.");
+	}
+	
+	/* Check if n1 == n2. If so then throw an exception. */
+	else if (n1 == n2) {
+		throw std::runtime_error ("Positive and negative terminal of a capacitor must be connected to different nodes.");
+	}
+
+	/* If the resistance is negative then we cannot proceed so throw an exception */
+	else if (value <= 0) {
+		throw std::runtime_error (std::string ("Zero or negative capacitance between nodes " + std::to_string (n1) + " and " + std::to_string (n2)));
+	}
+	
+	/* Now update the conductance matrix.
+	 * First check if the larger node is part of the circuit.
+	 * If not then resize the conductance matrix so it is.
+	 * If it is then the first node is also in the current circuit. */
+	if ((n1 > this->N) || (n2 > this->N)) {
+		this->N = max (n1, n2);
+	}
+
+	if (this->N > this->G.size ()) {
+		this->G.resize (this->N);
+
+		for (i = 0; i < this->G.size (); ++i) {
+			this->G[i].resize (this->N);
+		}
+	}
+	
+	/* Calculate the impedance of the capacitor */
+	std::complex Z (0.0, -1 / (this->w * value));
+
+	/* Add the new resistor to the conductance matrix.
+	 * If one of the nodes is 0, meaning ground, then we
+	 * only need to add it to its corresponding diagonal element. */
+	if (n2 == 0) {
+		this->G[n1-1][n1-1] += (1.0 / Z);
+	}
+
+	else if (n1 == 0) {
+		this->G[n2-1][n2-1] += (1.0 / Z);
+	}
+
+	/* Otherwise we need to add it to multiple diagonals and two
+	 * off-diagonal elements. */
+	else {
+		/* First add it to the diagonal elements */
+		this->G[n1-1][n1-1] += (1.0 / Z);
+		this->G[n2-1][n2-1] += (1.0 / Z);
+
+		/* Now subtract it from the off-diagonal elements */
+		this->G[n1-1][n2-1] -= (1.0 / Z);
+		this->G[n2-1][n1-1] -= (1.0 / Z);
+	}
+}	
+
+/* Calculate the node voltages */
 int
 Circuit::calcNodeVoltages ()
 {
+	int retVal;
+	
+	if (this->w == 0) {
+		retVal = this->calcDCNodes ();
+	}
+	
+	else {
+		retVal = this->calcACNodes ();
+	}
+	
+	return retVal;
+}
+
+/* Calculate node voltages for DC circuits */
+int
+Circuit::calcDCNodes ()
+{
 	unsigned int i, j; /* Loop counters */
-	const unsigned int nodes = this->N;
 	unsigned int in;
-	double *gMatrix; /* Conductance matrix for the system of equations */
-	double *vVector; /* Vector for node voltages */
-	unsigned int gSize; /* Number of rows and columns in rMatrix */
-	unsigned int vSize; /* Number of elements in vVector */
-	lapack_int ipvt[this->N]; /* Used by LAPACKE_dgesv */
+	unsigned int gSize;
+	unsigned int vSize;
+	unsigned int nodes = this->N; /* Number of nodes */
+	unsigned int sources = this->Ns; /* Number of sources */
+	double *gMatrix; /* Copy of the conductance matrix */
+	double *vVector; /* Copy of the source vector */
+	lapack_int ipvt[nodes]; /* Needed by LAPACKE_dgesv to find the node voltages */
 	lapack_int err; /* Returned value from LAPACKE_dgesv */
 
-	/* Create the system of equations from the node equations */
-	gSize = nodes * nodes;
+	/* Create copies of the vectors to preserve their values */
+	gSize  = nodes * nodes;
 	vSize = nodes;
+
 	gMatrix = new double [gSize];
 	if (gMatrix == 0x00) {
 		return -1;
@@ -116,21 +293,24 @@ Circuit::calcNodeVoltages ()
 		return -1;
 	}
 
-	/* Fill gMatrix and vVector */
+	/* Now fill gMatrix and vVector */
 	for (i = 0; i < nodes; ++i) {
 		vVector[i] = 0;
 
 		for (j = 0; j < nodes; ++j) {
-			gMatrix[i * nodes + j] = -1 * this->G[i][j];
+			gMatrix[i * nodes + j] = this->G[i][j].real ();
 		}
 	}
 
 	/* Set the non-zero values in vVector from vIn */
-	for (i = 0; i < this->Ns; ++i) {
+	for (i = 0; i < sources; ++i) {
 		in = this->inNode[i] - 1;
 		vVector[in] = this->Vin[i];
 
-		for (j = 0; j < nodes; j++) {
+		/* Set the diagonal element to 1 and the others to zero
+		 * in the conductance matrix for the row corresponding to
+		 * the source */
+		for (j = 0; j < nodes; ++j) {
 			if (j == in) {
 				gMatrix[in * nodes + j] = 1;
 			}
@@ -141,29 +321,31 @@ Circuit::calcNodeVoltages ()
 		}
 	}
 
-	/* Now that gMatrix and vVector are filled we can solve the
-	 * system of equations for the node voltages. The result is stored
-	 * in vVector. */
+	/* Allocate vNode */
+	this->vNode.resize (nodes);
+
+	/* Now that gMatrix and vVector are filled we can calculate the nodes voltages
+	 * by solving the system of equations. The result is stored in vVector. */
 	err = LAPACKE_dgesv (LAPACK_ROW_MAJOR, nodes, 1, gMatrix, nodes, ipvt, vVector, 1);
 
 	/* Check for errors */
 	if (err == 0) {
-		//this->vNode;
-		for (i = 0; i < this->N; ++i) {
+		/* If no errors occured then copy the results from vVector to vNode */
+		for (i = 0; i < nodes; ++i) {
 			this->vNode[i] = vVector[i];
 		}
 	}
 
 	else if (err < 0) {
-		fprintf (stderr, "Argument %d is invalid.\n", -1 * err);
-		for (i = 0; i < this->N; ++i) {
+		std::cerr << "Argument " << -1 * err << " is invalid." << std::endl;
+		for (i = 0; i < nodes; ++i) {
 			this->vNode[i] = NAN;
 		}
 	}
 
 	else {
-		fprintf (stderr, "G matrix is singular.\n");
-		for (i = 0; i < this->N; ++i) {
+		std::cerr << "Conductance matrix is singular." << std::endl;
+		for (i = 0; i < nodes; ++i) {
 			this->vNode[i] = NAN;
 		}
 	}
@@ -172,195 +354,171 @@ Circuit::calcNodeVoltages ()
 	delete[] gMatrix;
 	delete[] vVector;
 
-	/* Return 0 if success, -1 if illegal argument, and 1 for singular matrix */
+	/* Return the status of LAPACKE_dgesv */
 	return err;
 }
 
-/* Return the voltage at node N */
-double
-Circuit::voltageAtNode (const unsigned int node)
-{
-	if (node <= N) {
-		return this->vNode[node - 1];
-	}
-
-	else {
-		std::cerr << "Invalid node" << std::endl;
-		return 0;
-	}
-}
-
-/* Print the node voltages */
-void
-Circuit::printNodeVoltages ()
-{
-	unsigned int i;
-
-	for (i = 0; i < this->N; ++i) {
-		std::cout << "V" << i+1 << " = " << this->vNode[i] << std::endl;
-	}
-}
-
-/* Calculate the loop currents using mesh analysis. */
+/* Calculate the node voltages for AC circuits */
 int
-Circuit::calcLoopCurrents ()
+Circuit::calcACNodes ()
 {
-	unsigned int i, j;
-	double *resist;
-	double *vVector;
-	int ipvt[4];
-	int err;
+	unsigned int i, j, k; /* Loop counters */
+	unsigned int in;
+	const unsigned int nodes = this->N; /* Number of nodes */
+	const unsigned int sources = this->Ns; /* Number of sources */
+	const unsigned int gSize = nodes * nodes;
+	const unsigned int vSize = nodes;
+	std::complex<double> gMatrix[gSize]; /* Copy of the conductance matrix */
+	std::complex<double> vVector[vSize]; /* Copy of the source vector */
+	lapack_int ipvt[nodes]; /* Needed by LAPACKE_dgesv to find the node voltages */
+	lapack_int err; /* Returned value from LAPACKE_dgesv */	
 
-	/* Create a copy of the Resistance matrix since it will be overwritten
-	 * in the function LAPACKE_dgesv below */
-	resist = new double [this->Nl * this->Nl];
-	if (resist == 0x00) {
-		return -1;
-	}
-	
-	/* Create a copy of the voltage vector since it will also be overwritten
-	 * by LAPACKE_dgesv */
-	vVector = new double [this->Nl];
-	if (vVector == 0x00) {
-		delete resist;
-		return -1;
-	}
-
-	/* Copy the values */
-	for (i = 0; i < this->Nl; ++i) {
-		vVector[i] = this->vLoop[i];
-
-		for (j = 0; j < this->Nl; ++j) {
-			resist[i * this->Nl + j] = this->R[i][j];
+	/* Fill gMatrix and vVector */
+	for (i = 0; i < nodes; ++i) {
+		vVector[i] = std::complex (0, 0);
+		
+		for (j = 0; j < nodes; ++j) {
+			gMatrix[i * nodes + j] = this->G[i][j];
 		}
 	}
 
-	/* Solve the system of equations to find the loop currents */
-	err = LAPACKE_dgesv (LAPACK_ROW_MAJOR, this->Nl, 1, resist, this->Nl, ipvt, vVector, 1);
+	/* Set the non-zero values in vVector from vIn */
+	for (i = 0; i < sources; ++i) {
+		in = this->inNode[i] - 1;
+		vVector[in] = this->Vin[i];
 
-	/* If no errors occured */
+		/* Set the diagonal element to 1 and the others to zero
+		 * in the conductance matrix for the row corresponding to
+		 * the source */
+		for (j = 0; j < nodes; ++j) {
+			if (j == in) {
+				gMatrix[in * nodes + j] = 1;
+			}
+			
+			else {
+				gMatrix[in * nodes + j] = 0;
+			}
+		}
+	}
+
+	/* Allocate vNode */
+	this->vNode.resize (nodes);
+
+	/* Now that gMatrix and vVector are filled we can calculate the nodes voltages
+	 * by solving the system of equations. The result is stored in vVector.
+	 *
+	 * gMatrix and vVector are complex, but C++ can't use C's complex numbers.
+	 * However, they are interoperable, so we can recast std::complex to
+	 * lapack_complex_double, which is an alias for the C complex double type. */
+	err = LAPACKE_zgesv (LAPACK_ROW_MAJOR, nodes, 1, reinterpret_cast<lapack_complex_double*>(gMatrix), nodes, ipvt, reinterpret_cast<lapack_complex_double*>(vVector), 1);
+
+	/* Check for errors */
 	if (err == 0) {
-		for (i = 0; i < this->Nl; ++i) {
-			this->iBranch[i] = vVector[i];
+		for (i = 0; i < nodes; ++i) {
+			this->vNode[i] = vVector[i];
 		}
-
-		delete vVector;
-		delete resist;
-
-		return 0;
 	}
 
 	else if (err < 0) {
-		std::cerr << "Value of argument " << -1 * err << " is illegal" << std::endl;
-
-		delete vVector;
-		delete resist;
-
-		return err;
-	}
-
-	else {
-		std::cerr << "Resistance matrix is singular" << std::endl;
-
-		delete vVector;
-		delete resist;
-
-		return err;
-	}
-}
-
-/* Calculate the current between nodes n1 and n2 using the calculated node voltages.
- * calcNodeVoltages must be called before calling this function. */
-double
-Circuit::calcBranchCurrent (const unsigned int n1, const unsigned int n2)
-{
-	double V1, V2;
-	double G12;
-	double I12;
-	unsigned int i;
-	
-	/* Check if n1 == n2, in which case the current is zero */
-	if (n1 == n2) {
-		return 0;
-	}
-	
-	/* If n1 == 0 or n2 == 0, then its node voltage is zero */
-	if (n1 == 0) {
-		V1 = 0;
-		V2 = this->vNode[n2 - 1];
-		
-		/* To get the conductance between n1 and
-		 * ground, start with the value along the
-		 * diagonal in the G matrix  and add the other
-		 * elements (we add since the off-diagonal elements
-		 * are negative). */
-		G12 = this->G[n2 - 1][n2 - 1];
-		for (i = 0; i < this->N; ++i) {
-			if (i == n2 - 1) {
-				continue;
-			}
-			
-			G12 += this->G[n2 - 1][i];
-		}
-	}
-	
-	else if (n2 == 0) {
-		V1 = this->vNode[n1 - 1];
-		V2 = 0;
-		
-		/* To get the conductance between n1 and
-		 * ground, start with the value along the
-		 * diagonal in the G matrix  and add the other
-		 * elements (we add since the off-diagonal elements
-		 * are negative). */
-		G12 = this->G[n1 - 1][n1 - 1];
-		for (i = 0; i < this->N; ++i) {
-			if (i == n1 - 1) {
-				continue;
-			}
-
-			G12 += this->G[n1 - 1][i];
+		std::cerr << "Argument " << -1 * err << " is invalid." << std::endl;
+		for (i = 0; i < nodes; ++i) {
+			this->vNode[i] = NAN;
 		}
 	}
 
-	/* Otherwise get the voltages for nodes n1 and n2 from vNode */
 	else {
-		V1 = this->vNode[n1 - 1];
-		V2 = this->vNode[n2 - 1];
-
-		/* Get the resistance between nodes n1 and n2 from the G matrix */
-		G12 = -1 * this->G[n1 - 1][n2 - 1];
+		std::cerr << "Conductance matrix is singular." << std::endl;
+		for (i = 0; i < nodes; ++i) {
+			this->vNode[i] = NAN;
+		}
 	}
 
-	/* Calculate I12 = (V1 - V2) * G12 */
-	I12 = (V1 - V2) * G12;
+	/* Return the status of LAPACKE_zgesv */
+	return err;
+}	
 
-	return I12;
-}
-
-/* Print the loop currents */
+/* Print the voltages at all nodes */
 void
-Circuit::printLoopCurrents ()
+Circuit::printNodeVoltages ()
 {
+	double mag;
+	double angle;
+	const double pi = 3.14159265;
 	unsigned int i;
-
-	for (i = 0; i < this->Nl; ++i) {
-		std::cout << "I" << i + 1 << " = " << this->iBranch[i] << std::endl;
-	}
-
-	std::cout << std::endl;
-}
-
-void
-Circuit::printGMatrix ()
-{
-	unsigned int i, j;
 
 	for (i = 0; i < this->N; ++i) {
-		for (j = 0; j < this->N; ++j) {
-			std::cout << this->G[i][j] << "\t";
+		/* If the real part of the voltage is negative we print it normally */
+		if (this->vNode[i].real () < 0) {
+			/* Check if the imaginary part is zero. If it is then we only need to print the real part. */
+			if (this->vNode[i].imag () == 0) {
+				std::cout << "V" << i + 1 << " = " << this->vNode[i].real () << "<0" << std::endl;
+			}
+
+			/* If the imaginary part is negative then we can just print both parts */
+			else if (this->vNode[i].imag () < 0) {
+				/* Calculate the magnitude of the voltage */
+				mag = sqrt (pow (this->vNode[i].real (), 2) + pow (this->vNode[i].imag (), 2));
+
+				/* Calculate the phase shift of the voltage */
+				angle = pi + atan (this->vNode[i].imag () / this->vNode[i].real ());
+
+				/* Convert the angle from radians to degrees */
+				angle *= (180 / pi);
+
+				std::cout << "V" << i + 1 << " = " << mag << "<" << angle << std::endl;
+			}
+
+			/* If the imaginary part is positive then we need to print a plus sign before printing the imaginary part.
+			 * This is because we don't use format specifiers with std::cout. */
+			else {
+				/* Calculate the magnitude of the voltage */
+				mag = sqrt (pow (this->vNode[i].real (), 2) + pow (this->vNode[i].imag (), 2));
+
+				/* Calculate the phase shift of the voltage */
+				angle = pi - atan (this->vNode[i].imag () / this->vNode[i].real ());
+
+				/* Convert the angle from radians to degrees */
+				angle *= (180 / pi);
+
+				std::cout << "V" << i + 1 << " = " << mag << "<" << angle << std::endl;
+			}
 		}
 
-		std::cout << std::endl;
+		/* Otherwise the real part is positive so we need to add another space after the equal sign */
+		else {
+			/* Check if the imaginary part is zero. If it is then we only need to print the real part. */
+			if (this->vNode[i].imag () == 0) {
+				std::cout << "V" << i + 1 << " = " << this->vNode[i].real () << "<0" << std::endl;
+			}
+
+			/* If the imaginary part is negative then we can just print both parts */
+			else if (this->vNode[i].imag () < 0) {
+				/* Calculate the magnitude of the voltage */
+				mag = sqrt (pow (this->vNode[i].real (), 2) + pow (this->vNode[i].imag (), 2));
+
+				/* Calculate the phase shift of the voltage */
+				angle = atan (this->vNode[i].imag () / this->vNode[i].real ());
+
+				/* Convert the angle from radians to degrees */
+				angle *= (180 / pi);
+
+				std::cout << "V" << i + 1 << " = " << mag << "<" << angle << std::endl;
+			}
+
+			/* If the imaginary part is positive then we need to print a plus sign before printing the imaginary part.
+			 * This is because we don't use format specifiers with std::cout. */
+			else {
+				/* Calculate the magnitude of the voltage */
+				mag = sqrt (pow (this->vNode[i].real (), 2) + pow (this->vNode[i].imag (), 2));
+
+				/* Calculate the phase shift of the voltage */
+				angle = atan (this->vNode[i].imag () / this->vNode[i].real ());
+
+				/* Convert the angle from radians to degrees */
+				angle *= (180 / pi);
+
+				std::cout << "V" << i + 1 << " = " << mag << "<" << angle << std::endl;
+			}
+		}
 	}
 }
