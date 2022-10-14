@@ -2,9 +2,8 @@
  *
  * Node voltages are found using nodal analysis with a conductance matrix */
 
-#include "resistive2.h"
+#include "resistive.h"
 #include <iostream>
-#include <string>
 #include <exception>
 #include <cmath>
 #include <lapacke.h>
