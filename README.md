@@ -1,5 +1,5 @@
 # Resistive
-Resistive is a C++ and Python tool for calculating the node voltages in DC and AC circuits. The syntax is similar to SPICE, where the user provides the nodes where the element is connected and its value. This means that the user does not need to calculate the conductance matrix themselves. Instead, the conductance matrix is updated automatically as elements are added to the circuit. Resistive uses nodal analysis to calculate the node voltages.
+Resistive is a C++ tool for calculating the node voltages in DC and AC circuits. The syntax is similar to SPICE, where the user provides the nodes where the element is connected and its value. This means that the user does not need to calculate the conductance matrix themselves. Instead, the conductance matrix is updated automatically as elements are added to the circuit. Resistive uses nodal analysis to calculate the node voltages.
 
 Currently, Resistive supports DC and AC sources, but only if all sources are of the same frequency and all sources need to have one node connected to ground.
 
