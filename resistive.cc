@@ -444,6 +444,17 @@ Circuit::printNodeVoltages ()
 	double angle;
 	const double pi = 3.14159265;
 	unsigned int i;
+	
+	/* If we are using a DC circuit, then we don't need to worry about
+	 * the phase angle. */
+	if (this->w == 0) {
+		for (i = 0; i < this->N; ++i) {
+			std::cout << "V" << i + 1 << " = " << this->vNode[i].real () << std::endl;
+		}
+		
+		/* Exit the function */
+		return;
+	}
 
 	for (i = 0; i < this->N; ++i) {
 		/* If the real part of the voltage is negative we print it normally */
