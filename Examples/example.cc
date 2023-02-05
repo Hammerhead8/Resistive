@@ -1,5 +1,5 @@
 /* Example circuit with three nodes. */
-#include "../resistive.h"
+#include "resistive.h"
 
 int
 main ()
