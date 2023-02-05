@@ -43,9 +43,9 @@ main ()
 
 This program creates the following output:
 ```
-V1 = 5<0
-V2 = 2<0
-V3 = 1<0
+V1 = 5
+V2 = 2
+V3 = 1
 ```
 
 Which matches the expected solution. Note that the solutions are given in phasor form, where the phase shift is given in degrees.
