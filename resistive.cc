@@ -18,7 +18,8 @@ Circuit::Circuit (double freq)
 	/* Set the values of N and Ns to zero and w to the circuit frequency */
 	this->N = 0;
 	this->Ns = 0;
-	this->w = freq;
+	this->w.resize (1);
+	this->w[0] = freq;
 
 	/* Create the vectors Vin and inNode */
 	this->Vin.resize (0);
@@ -27,7 +28,56 @@ Circuit::Circuit (double freq)
 	/* Create the conductance matrix */
 	this->G.resize (1);
 	this->G[0].resize (1);
+	this->G[0][0].resize (1);
 }
+
+/* Overloaded class constructor for performing AC analysis.
+ * A conductance matrix is created for each frequency being analyzed.
+ *
+ * lowerExp is the exponent of the starting frequency (w0 = 10^lowerExp)
+ * upperExp is the exponent of the final frequency (w1 = 10^upperFreq)
+ * numPoints is the number of points per decade in the sweep */
+Circuit::Circuit (int lowerExp, int upperExp, int numPoints)
+{
+	int numDecades;
+	int orderOfMagnitude;
+	int i, j, k;
+	int freqSize;
+	double stepSize;
+	
+	this->N = 0;
+	this->Ns = 0;
+	
+	/* Calculate the required size of the frequency vector */
+	numDecades = upperExp - lowerExp;
+	this->w.resize (numDecades * numPoints);
+	
+	/* Fill the vector with the indivual frequencies */
+	k = 0;
+	orderOfMagnitude = lowerExp;
+	
+	for (i = 0; i < numDecades; ++i) {
+		stepSize = (pow (10, orderOfMagnitude + 1) - pow (10, orderOfMagnitude)) / numPoints;
+		
+		for (j = 1; j <= numPoints; ++j) {
+			this->w[k] = pow (10, orderOfMagnitude) + j * stepSize;
+			k++;
+		}
+		
+		orderOfMagnitude++;
+	}
+	
+	this->Vin.resize (0);
+	this->inNode.resize (0);
+	
+	freqSize = (upperExp - lowerExp) * numPoints;
+	
+	/* Create the conductance matrix */
+	this->G.resize (freqSize);
+	for (i = 0; i < freqSize; ++i) {
+		this->G[i].resize (1);
+	}
+}	
 
 /* Add a DC voltage source */
 void
@@ -62,7 +112,7 @@ Circuit::addSource (unsigned int n1, unsigned int n2, double value)
 void
 Circuit::addResistor (unsigned int n1, unsigned int n2, double value)
 {
-	unsigned int i;
+	unsigned int i, j;
 	unsigned int temp;
 
 	/* Check if n1 == n2. If so then throw an exception. */
@@ -84,34 +134,38 @@ Circuit::addResistor (unsigned int n1, unsigned int n2, double value)
 	}
 
 	if (this->N > this->G.size ()) {
-		this->G.resize (this->N);
-
-		for (i = 0; i < this->G.size (); ++i) {
+		for (i = 0; i < this->w.size (); ++i) {
 			this->G[i].resize (this->N);
+
+			for (j = 0; j < this->G[i].size (); ++j) {
+				this->G[i][j].resize (this->N);
+			}
 		}
 	}
 
 	/* Add the new resistor to the conductance matrix.
 	 * If one of the nodes is 0, meaning ground, then we
 	 * only need to add it to its corresponding diagonal element. */
-	if (n2 == 0) {
-		this->G[n1-1][n1-1] += (1 / value);
-	}
+	for (i = 0; i < this->w.size (); ++i) {
+		if (n2 == 0) {
+			this->G[i][n1-1][n1-1] += (1 / value);
+		}
 
-	else if (n1 == 0) {
-		this->G[n2-1][n2-1] += (1 / value);
-	}
+		else if (n1 == 0) {
+			this->G[i][n2-1][n2-1] += (1 / value);
+		}
 
-	/* Otherwise we need to add it to multiple diagonals and two
-	 * off-diagonal elements. */
-	else {
-		/* First add it to the diagonal elements */
-		this->G[n1-1][n1-1] += (1 / value);
-		this->G[n2-1][n2-1] += (1 / value);
+		/* Otherwise we need to add it to multiple diagonals and two
+		 * off-diagonal elements. */
+		else {
+			/* First add it to the diagonal elements */
+			this->G[i][n1-1][n1-1] += (1 / value);
+			this->G[i][n2-1][n2-1] += (1 / value);
 
-		/* Now subtract it from the off-diagonal elements */
-		this->G[n1-1][n2-1] -= (1 / value);
-		this->G[n2-1][n1-1] -= (1 / value);
+			/* Now subtract it from the off-diagonal elements */
+			this->G[i][n1-1][n2-1] -= (1 / value);
+			this->G[i][n2-1][n1-1] -= (1 / value);
+		}
 	}
 }
 
@@ -119,11 +173,11 @@ Circuit::addResistor (unsigned int n1, unsigned int n2, double value)
 void
 Circuit::addInductor (unsigned int n1, unsigned int n2, double value)
 {
-	unsigned int i;
+	unsigned int i, j;
 	
 	/* Check if the circuit frequency is 0 (DC).
 	 * If so we can't add the inductor */
-	if (this->w == 0) {
+	if (this->w[0] == 0) {
 		throw std::runtime_error ("Cannot add an inductor to a DC circuit.");
 	}
 	
@@ -141,42 +195,44 @@ Circuit::addInductor (unsigned int n1, unsigned int n2, double value)
 	 * First check if the larger node is part of the circuit.
 	 * If not then resize the conductance matrix so it is.
 	 * If it is then the first node is also in the current circuit. */
-	if ((n1 > this->N) || (n2 > this->N)) {
-		this->N = max (n1, n2);
-	}
-
-	if (this->N > this->G.size ()) {
-		this->G.resize (this->N);
-
-		for (i = 0; i < this->G.size (); ++i) {
-			this->G[i].resize (this->N);
+	for (i = 0; i < this->w.size (); ++i) {
+		if ((n1 > this->N) || (n2 > this->N)) {
+			this->N = max (n1, n2);
 		}
-	}
-	
-	/* Calculate the impedance of the inductor */
-	std::complex Z (0.0, this->w * value);
 
-	/* Add the new resistor to the conductance matrix.
-	 * If one of the nodes is 0, meaning ground, then we
-	 * only need to add it to its corresponding diagonal element. */
-	if (n2 == 0) {
-		this->G[n1-1][n1-1] += (1.0 / Z);
-	}
+		if (this->N > this->G.size ()) {
+			this->G[i].resize (this->N);
 
-	else if (n1 == 0) {
-		this->G[n2-1][n2-1] += (1.0 / Z);
-	}
+			for (j = 0; j < this->G[i].size (); ++j) {
+				this->G[i][j].resize (this->N);
+			}
+		}
+		
+		/* Calculate the impedance of the inductor */
+		std::complex Z (0.0, this->w[i] * value);
 
-	/* Otherwise we need to add it to multiple diagonals and two
-	 * off-diagonal elements. */
-	else {
-		/* First add it to the diagonal elements */
-		this->G[n1-1][n1-1] += (1.0 / Z);
-		this->G[n2-1][n2-1] += (1.0 / Z);
+		/* Add the new resistor to the conductance matrix.
+		 * If one of the nodes is 0, meaning ground, then we
+		 * only need to add it to its corresponding diagonal element. */
+		if (n2 == 0) {
+			this->G[i][n1-1][n1-1] += (1.0 / Z);
+		}
 
-		/* Now subtract it from the off-diagonal elements */
-		this->G[n1-1][n2-1] -= (1.0 / Z);
-		this->G[n2-1][n1-1] -= (1.0 / Z);
+		else if (n1 == 0) {
+			this->G[i][n2-1][n2-1] += (1.0 / Z);
+		}
+
+		/* Otherwise we need to add it to multiple diagonals and two
+		 * off-diagonal elements. */
+		else {
+			/* First add it to the diagonal elements */
+			this->G[i][n1-1][n1-1] += (1.0 / Z);
+			this->G[i][n2-1][n2-1] += (1.0 / Z);
+
+			/* Now subtract it from the off-diagonal elements */
+			this->G[i][n1-1][n2-1] -= (1.0 / Z);
+			this->G[i][n2-1][n1-1] -= (1.0 / Z);
+		}
 	}
 }
 
@@ -184,11 +240,11 @@ Circuit::addInductor (unsigned int n1, unsigned int n2, double value)
 void
 Circuit::addCapacitor (unsigned int n1, unsigned int n2, double value)
 {
-	unsigned int i;
+	unsigned int i, j;
 	
 	/* Check if the circuit frequency is 0 (DC).
 	 * If it is then we can't add the capacitor so throw an exception. */
-	if (this->w == 0) {
+	if (this->w[0] == 0) {
 		throw std::runtime_error ("Cannot add a capacitor to a DC circuit.");
 	}
 	
@@ -206,52 +262,58 @@ Circuit::addCapacitor (unsigned int n1, unsigned int n2, double value)
 	 * First check if the larger node is part of the circuit.
 	 * If not then resize the conductance matrix so it is.
 	 * If it is then the first node is also in the current circuit. */
-	if ((n1 > this->N) || (n2 > this->N)) {
-		this->N = max (n1, n2);
-	}
-
-	if (this->N > this->G.size ()) {
-		this->G.resize (this->N);
-
-		for (i = 0; i < this->G.size (); ++i) {
-			this->G[i].resize (this->N);
+	for (i = 0; i < this->w.size (); ++i) {
+		if ((n1 > this->N) || (n2 > this->N)) {
+			this->N = max (n1, n2);
 		}
-	}
-	
-	/* Calculate the impedance of the capacitor */
-	std::complex Z (0.0, -1 / (this->w * value));
 
-	/* Add the new resistor to the conductance matrix.
-	 * If one of the nodes is 0, meaning ground, then we
-	 * only need to add it to its corresponding diagonal element. */
-	if (n2 == 0) {
-		this->G[n1-1][n1-1] += (1.0 / Z);
-	}
+		if (this->N > this->G[i].size ()) {
+			this->G.resize (this->N);
 
-	else if (n1 == 0) {
-		this->G[n2-1][n2-1] += (1.0 / Z);
-	}
+			for (j = 0; j < this->G.size (); ++j) {
+				this->G[i][j].resize (this->N);
+			}
+		}
+		
+		/* Calculate the impedance of the capacitor */
+		std::complex Z (0.0, -1 / (this->w[i] * value));
 
-	/* Otherwise we need to add it to multiple diagonals and two
-	 * off-diagonal elements. */
-	else {
-		/* First add it to the diagonal elements */
-		this->G[n1-1][n1-1] += (1.0 / Z);
-		this->G[n2-1][n2-1] += (1.0 / Z);
+		/* Add the new resistor to the conductance matrix.
+		 * If one of the nodes is 0, meaning ground, then we
+		 * only need to add it to its corresponding diagonal element. */
+		if (n2 == 0) {
+			this->G[i][n1-1][n1-1] += (1.0 / Z);
+		}
 
-		/* Now subtract it from the off-diagonal elements */
-		this->G[n1-1][n2-1] -= (1.0 / Z);
-		this->G[n2-1][n1-1] -= (1.0 / Z);
+		else if (n1 == 0) {
+			this->G[i][n2-1][n2-1] += (1.0 / Z);
+		}
+
+		/* Otherwise we need to add it to multiple diagonals and two
+		 * off-diagonal elements. */
+		else {
+			/* First add it to the diagonal elements */
+			this->G[i][n1-1][n1-1] += (1.0 / Z);
+			this->G[i][n2-1][n2-1] += (1.0 / Z);
+
+			/* Now subtract it from the off-diagonal elements */
+			this->G[i][n1-1][n2-1] -= (1.0 / Z);
+			this->G[i][n2-1][n1-1] -= (1.0 / Z);
+		}
 	}
 }	
 
-/* Calculate the node voltages */
+/* Calculate the node voltages.
+ *
+ * TODO:  Add a default argument giving the node whose voltage should be output.
+ * If a value less than 1 or no value is given then return all values.
+ * If an invalid node was given then print a message and return all voltages. */
 int
 Circuit::calcNodeVoltages ()
 {
 	int retVal;
 	
-	if (this->w == 0) {
+	if (this->w[0] == 0) {
 		retVal = this->calcDCNodes ();
 	}
 	
@@ -262,7 +324,11 @@ Circuit::calcNodeVoltages ()
 	return retVal;
 }
 
-/* Calculate node voltages for DC circuits */
+/* Calculate node voltages for DC circuits
+ *
+ * TODO:  Add a default argument giving the node whose voltage should be output.
+ * If a value less than 1 or no value is given then return all values.
+ * If an invalid node was given then print a message and return all voltages. */
 int
 Circuit::calcDCNodes ()
 {
@@ -297,7 +363,7 @@ Circuit::calcDCNodes ()
 		vVector[i] = 0;
 
 		for (j = 0; j < nodes; ++j) {
-			gMatrix[i * nodes + j] = this->G[i][j].real ();
+			gMatrix[i * nodes + j] = this->G[0][i][j].real ();
 		}
 	}
 
@@ -357,7 +423,11 @@ Circuit::calcDCNodes ()
 	return err;
 }
 
-/* Calculate the node voltages for AC circuits */
+/* Calculate the node voltages for AC circuits
+ *
+ * TODO:  Add a default argument giving the node whose voltage should be output.
+ * If a value less than 1 or no value is given then return all values.
+ * If an invalid node was given then print a message and return all voltages. */
 int
 Circuit::calcACNodes ()
 {
@@ -374,10 +444,10 @@ Circuit::calcACNodes ()
 
 	/* Fill gMatrix and vVector */
 	for (i = 0; i < nodes; ++i) {
-		vVector[i] = std::complex (0, 0);
-		
+		vVector[i] = std::complex (0.0, 0.0);
+
 		for (j = 0; j < nodes; ++j) {
-			gMatrix[i * nodes + j] = this->G[i][j];
+			gMatrix[i * nodes + j] = this->G[0][i][j];
 		}
 	}
 
@@ -393,7 +463,7 @@ Circuit::calcACNodes ()
 			if (j == in) {
 				gMatrix[in * nodes + j] = 1;
 			}
-			
+
 			else {
 				gMatrix[in * nodes + j] = 0;
 			}
@@ -447,7 +517,7 @@ Circuit::printNodeVoltages ()
 	
 	/* If we are using a DC circuit, then we don't need to worry about
 	 * the phase angle. */
-	if (this->w == 0) {
+	if (this->w[0] == 0) {
 		for (i = 0; i < this->N; ++i) {
 			std::cout << "V" << i + 1 << " = " << this->vNode[i].real () << std::endl;
 		}
