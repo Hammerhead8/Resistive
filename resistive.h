@@ -14,6 +14,8 @@ Circuit
 	public:
 		/* Class constructor */
 		Circuit (double freq);
+		
+		Circuit (int lowerExp, int upperExp, int numPoints);
 
 		/* Add a voltage source.
 		 * Currently one terminal has to be connected to ground */
@@ -43,17 +45,17 @@ Circuit
 		
 		unsigned int N; /* Number of nodes in the circuit */
 		unsigned int Ns; /* Number of voltage sources */
-		double w; /* Frequency of the circuit in rad/s */
+		std::vector<double> w; /* Frequency of the circuit in rad/s */
 
 //		std::vector<std::vector<double>> G; /* Conductance matrix */
-		std::vector<std::vector<std::complex<double>>> G; /* Conductance matrix */
+		std::vector<std::vector<std::vector<std::complex<double>>>> G; /* Conductance matrix */
 
 		std::vector<double> Vin; /* DC voltage sources */
 
 		std::vector<unsigned int> inNode; /* Nodes to which the DC sources are connected */
 
 //		std::vector<double> vNode; /* Vector of node voltages */
-		std::vector<std::complex<double>> vNode; /* Vector of node voltages */
+		std::vector<std::vector<std::complex<double>>> vNode; /* Vector of node voltages */
 
 //		std::vector<double> iBranch; /* Vector of loop currents */
 };
