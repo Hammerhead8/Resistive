@@ -4,6 +4,7 @@
 
 #include "resistive.h"
 #include <iostream>
+#include <fstream>
 #include <exception>
 #include <cmath>
 #include <lapacke.h>
@@ -518,24 +519,129 @@ Circuit::calcACNodes ()
 
 /* Print the voltages at all nodes */
 void
-Circuit::printNodeVoltages ()
+Circuit::printNodeVoltages (int node)
 {
 	double mag;
 	double angle;
 	const double pi = 3.14159265;
 	unsigned int i, j;
 	
-	/* If we are using a DC circuit, then we don't need to worry about
-	 * the phase angle. */
-	if (this->w[0] == 0) {
-		for (i = 0; i < this->N; ++i) {
-			std::cout << "V" << i + 1 << " = " << this->vNode[0][i].real () << std::endl;
+	/* If we are only using one input frequency */
+	if (this->w.size () == 1) {
+		/* If we are using a DC circuit, then we don't
+		 * need to worry about the phase angle */
+		if (this->w[0] == 0) {
+			/* If the user wants only the voltage at a specific
+			 * node then only print the voltage at that node */
+			if ((node > 0) && (node <= this->N)) {
+				std::cout << "V" << node << " = " << this->vNode[0][node].real () << std::endl;
+			}
+			
+			/* Otherwise print all of the node voltages */
+			else {
+				for (i = 0; i < this->N; ++i) {
+					std::cout << "V" << i + 1 << " = " << this->vNode[0][i].real () << std::endl;
+				}
+			}
+		}
+		
+		/* Otherwise we are using an AC circuit so we
+		 * do need to worry about the phase angle */
+		else {
+			/* If the user wants only the voltage at a specific
+			 * node then only print the voltage at that node */
+			if ((node > 0) && (node <= this->N)) {
+				/* Calculate the magnitude of the voltage */
+				mag = sqrt (pow (this->vNode[0][node].real (), 2) + pow (this->vNode[0][node].imag (), 2));
+				
+				/* Calculate the phase shift of the voltage */
+				angle = pi - atan (this->vNode[0][node].imag () / this->vNode[0][node].real ());
+
+				/* Convert the angle from radians to degrees */
+				angle *= (180 / pi);
+				
+				std::cout << "V" << node << " = " << mag << "<" << angle << std::endl;
+			}
+			
+			/* Otherwise print all of the node voltages */
+			else {
+				for (i = 0; i < this->N; ++i) {
+					/* Calculate the magnitude of the voltage */
+					mag = sqrt (pow (this->vNode[0][i].real (), 2) + pow (this->vNode[0][i].imag (), 2));
+					
+					/* Calculate the phase shift of the voltage */
+					angle = atan2 (this->vNode[0][i].imag (), this->vNode[0][i].real ());
+
+					/* Convert the angle from radians to degrees */
+					angle *= (180 / pi);
+					
+					std::cout << "V" << i + 1 << " = " << mag << "<" << angle << std::endl;
+				}
+			}
 		}
 		
 		/* Exit the function */
 		return;
 	}
+	
+	/* TODO:  Write voltage as a function of frequency to a file.
+	 * They can all be in the same file for now but there
+	 * needs to be some kind of seperator between nodes
+	 * in the file that makes it clear which node the values
+	 * correspond to.
+	 *
+	 * An alternative would be to create a different file for each node. */
+	 
+	 /* Since we have multiple frequencies the most useful format in which
+	  * we can output the node voltages is in a file, with each node seperated
+	  * from the others */
+	 std::ofstream fp;
+	 
+	 fp.open ("file.txt");
+	 
+	 /* Write the points to the file */
+	 for (i = 0; i < this->N; ++i) {
+	 	fp << "Node " << i + 1 << std::endl;
+	 	
+	 	for (j = 0; j < this->w.size (); ++j) {
+	 		/* Calculate the magnitude of the voltage */
+	 		mag = sqrt (pow (this->vNode[j][i].real (), 2) + pow (this->vNode[j][i].imag (), 2));
+	 		
+	 		/* Now convert the magnitude to dB */
+	 		mag = 20 * log10 (mag);
+	 		
+	 		fp << this->w[j] << "\t" << mag << std::endl;
+	 	}
+	 	
+	 	fp << "\n\n";
+	 }
+	 
+	 fp.close ();
+	 return;
 
+#if 0	
+	/* If we are using a DC circuit, then we don't need to worry about
+	 * the phase angle. */
+	if (this->w[0] == 0) {
+		/* If the user wants only the voltage at a specific node
+		 * then only print the voltage at that node */
+		if ((node > 0) && (node <= this->N)) {
+			std::cout << "V" << node << " = " << this->vNode[0][node].real () << std::endl;
+		}
+		
+		/* Otherwise print all of the node voltages */
+		else {
+			for (i = 0; i < this->N; ++i) {
+				std::cout << "V" << i + 1 << " = " << this->vNode[0][i].real () << std::endl;
+			}
+		}
+		
+		/* Exit the function */
+		return;
+	}
+#endif
+
+#if 0
 	for (i = 0; i < this->w.size (); ++i) {
 		for (j = 0; j < this->N; ++j) {
 			/* If the real part of the voltage is negative we print it normally */
@@ -613,4 +719,5 @@ Circuit::printNodeVoltages ()
 			}
 		}
 	}
+#endif
 }
