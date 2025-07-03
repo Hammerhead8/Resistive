@@ -52,8 +52,8 @@ Circuit::Circuit (int lowerExp, int upperExp, int numPoints)
 	
 	/* Calculate the required size of the frequency vector */
 	numDecades = upperExp - lowerExp;
-	this->w.resize (numDecades * numPoints);
-	this->vNode.resize (numDecades * numPoints);
+	this->w.resize (numDecades * numPoints + 1);
+	this->vNode.resize (numDecades * numPoints + 1);
 	
 	/* Fill the vector with the indivual frequencies */
 	k = 0;
@@ -62,7 +62,7 @@ Circuit::Circuit (int lowerExp, int upperExp, int numPoints)
 	for (i = 0; i < numDecades; ++i) {
 		stepSize = (pow (10, orderOfMagnitude + 1) - pow (10, orderOfMagnitude)) / numPoints;
 		
-		for (j = 1; j <= numPoints; ++j) {
+		for (j = 0; j < numPoints; ++j) {
 			this->w[k] = pow (10, orderOfMagnitude) + j * stepSize;
 			k++;
 		}
@@ -70,10 +70,12 @@ Circuit::Circuit (int lowerExp, int upperExp, int numPoints)
 		orderOfMagnitude++;
 	}
 	
+	this->w[k] = pow (10, orderOfMagnitude);
+	
 	this->Vin.resize (1);
 	this->inNode.resize (1);
 	
-	freqSize = (upperExp - lowerExp) * numPoints;
+	freqSize = (upperExp - lowerExp) * numPoints + 1;
 	
 	/* Create the conductance matrix */
 	this->G.resize (freqSize);
