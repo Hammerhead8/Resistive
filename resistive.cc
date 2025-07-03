@@ -534,7 +534,7 @@ Circuit::printNodeVoltages (int node)
 			/* If the user wants only the voltage at a specific
 			 * node then only print the voltage at that node */
 			if ((node > 0) && (node <= this->N)) {
-				std::cout << "V" << node << " = " << this->vNode[0][node].real () << std::endl;
+				std::cout << "V" << node << " = " << this->vNode[0][node - 1].real () << std::endl;
 			}
 			
 			/* Otherwise print all of the node voltages */
@@ -552,10 +552,10 @@ Circuit::printNodeVoltages (int node)
 			 * node then only print the voltage at that node */
 			if ((node > 0) && (node <= this->N)) {
 				/* Calculate the magnitude of the voltage */
-				mag = sqrt (pow (this->vNode[0][node].real (), 2) + pow (this->vNode[0][node].imag (), 2));
+				mag = sqrt (pow (this->vNode[0][node].real (), 2) + pow (this->vNode[0][node - 1].imag (), 2));
 				
 				/* Calculate the phase shift of the voltage */
-				angle = pi - atan (this->vNode[0][node].imag () / this->vNode[0][node].real ());
+				angle = atan2 (this->vNode[0][node - 1].imag (), this->vNode[0][node - 1].real ());
 
 				/* Convert the angle from radians to degrees */
 				angle *= (180 / pi);
