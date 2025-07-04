@@ -7,6 +7,7 @@
 #include <fstream>
 #include <exception>
 #include <cmath>
+#include <numbers>
 #include <lapacke.h>
 
 /* Return the larger of two integers */
@@ -554,10 +555,10 @@ Circuit::printNodeVoltages (int node)
 			 * node then only print the voltage at that node */
 			if ((node > 0) && (node <= this->N)) {
 				/* Calculate the magnitude of the voltage */
-				mag = sqrt (pow (this->vNode[0][node].real (), 2) + pow (this->vNode[0][node - 1].imag (), 2));
+				mag = std::abs (this->vNode[0][node - 1].real ());
 				
 				/* Calculate the phase shift of the voltage */
-				angle = atan2 (this->vNode[0][node - 1].imag (), this->vNode[0][node - 1].real ());
+				angle = std::arg (this->vNode[0][node - 1]);
 
 				/* Convert the angle from radians to degrees */
 				angle *= (180 / pi);
@@ -569,10 +570,10 @@ Circuit::printNodeVoltages (int node)
 			else {
 				for (i = 0; i < this->N; ++i) {
 					/* Calculate the magnitude of the voltage */
-					mag = sqrt (pow (this->vNode[0][i].real (), 2) + pow (this->vNode[0][i].imag (), 2));
+					mag = std::abs (this->vNode[0][i]);
 					
 					/* Calculate the phase shift of the voltage */
-					angle = atan2 (this->vNode[0][i].imag (), this->vNode[0][i].real ());
+					angle = std::arg (this->vNode[0][i]);
 
 					/* Convert the angle from radians to degrees */
 					angle *= (180 / pi);
@@ -607,10 +608,10 @@ Circuit::printNodeVoltages (int node)
 	 	
 	 	for (j = 0; j < this->w.size (); ++j) {
 	 		/* Calculate the magnitude of the voltage */
-	 		mag = sqrt (pow (this->vNode[j][i].real (), 2) + pow (this->vNode[j][i].imag (), 2));
+			mag = std::abs (this->vNode[j][i]);
 	 		
 	 		/* Now convert the magnitude to dB */
-	 		mag = 20 * log10 (mag);
+	 		mag = 20 * std::log10 (mag);
 	 		
 	 		fp << this->w[j] << "\t" << mag << std::endl;
 	 	}
