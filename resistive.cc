@@ -7,7 +7,6 @@
 #include <fstream>
 #include <exception>
 #include <cmath>
-#include <numbers>
 #include <lapacke.h>
 
 /* Return the larger of two integers */
@@ -526,7 +525,6 @@ Circuit::printNodeVoltages (int node)
 {
 	double mag;
 	double angle;
-	const double pi = 3.14159265;
 	unsigned int i, j;
 	
 	/* If we are only using one input frequency */
@@ -561,7 +559,7 @@ Circuit::printNodeVoltages (int node)
 				angle = std::arg (this->vNode[0][node - 1]);
 
 				/* Convert the angle from radians to degrees */
-				angle *= (180 / pi);
+				angle *= (180 / M_PI);
 				
 				std::cout << "V" << node << " = " << mag << "<" << angle << std::endl;
 			}
@@ -576,7 +574,7 @@ Circuit::printNodeVoltages (int node)
 					angle = std::arg (this->vNode[0][i]);
 
 					/* Convert the angle from radians to degrees */
-					angle *= (180 / pi);
+					angle *= (180 / M_PI);
 					
 					std::cout << "V" << i + 1 << " = " << mag << "<" << angle << std::endl;
 				}
