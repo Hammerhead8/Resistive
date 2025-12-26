@@ -3,6 +3,20 @@ Resistive is a C++ tool for calculating the node voltages in DC and AC circuits.
 
 Currently, Resistive supports DC and AC sources, but only if all sources are of the same frequency and all sources need to have one node connected to ground.
 
+# Features
+* Support for multiple voltages sources
+* Support for both DC and AC circuits
+* Support for AC sweep analysis with node voltages printed to a text file for analysis
+* Able to print voltages for either the whole circuit or a particular node
+
+# Limitations
+Currently Resistive has the following limitations. Note that some of these are no plans to add support for some of these since they are outside the intended scope of the tool.
+* No checks for invalid connections such as components not connected to the rest of the circuit
+* All voltages sources must have ground as one of their nodes
+* No support for Monte Carlo simulation using random values for a particular component
+* No support for transient analysis
+* No built-in support for plotting result of AC sweep
+
 # Dependencies
 The only external dependancy is LAPACKE. If you're using Linux then it should be available through your software
 repositories. Otherwise, it can be downloaded and built from https://netlib.org/lapack.
