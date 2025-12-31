@@ -34,7 +34,7 @@ Circuit
 		int calcNodeVoltages ();
 
 		/* Print the voltages at all the nodes */
-		void printNodeVoltages (int node);
+		void printNodeVoltages (int node = 0);
 
 	private:
 		/* Calculate node voltages for DC circuits */
