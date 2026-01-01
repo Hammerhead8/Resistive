@@ -329,11 +329,7 @@ Circuit::calcNodeVoltages ()
 	return retVal;
 }
 
-/* Calculate node voltages for DC circuits
- *
- * TODO:  Add a default argument giving the node whose voltage should be output.
- * If a value less than 1 or no value is given then return all values.
- * If an invalid node was given then print a message and return all voltages. */
+/* Calculate node voltages for DC circuits */
 int
 Circuit::calcDCNodes ()
 {
