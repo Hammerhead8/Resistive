@@ -317,6 +317,13 @@ int
 Circuit::calcNodeVoltages ()
 {
 	int retVal;
+
+	/* Before calculating check if there is at least
+	 * voltage source connected to the circuit.
+	 * If not then throw an exception. */
+	if (this->Ns == 0) {
+		throw (std::runtime_error (std::string ("There must be at least one voltage source connected to the circuit.")));
+	}
 	
 	if (this->w[0] == 0) {
 		retVal = this->calcDCNodes ();
