@@ -205,7 +205,7 @@ Circuit::addInductor (unsigned int n1, unsigned int n2, double value)
 			this->N = max (n1, n2);
 		}
 
-		if (this->N > this->G.size ()) {
+		if (this->N > this->G[i].size ()) {
 			this->G[i].resize (this->N);
 
 			for (j = 0; j < this->G[i].size (); ++j) {
@@ -273,9 +273,9 @@ Circuit::addCapacitor (unsigned int n1, unsigned int n2, double value)
 		}
 
 		if (this->N > this->G[i].size ()) {
-			this->G.resize (this->N);
+			this->G[i].resize (this->N);
 
-			for (j = 0; j < this->G.size (); ++j) {
+			for (j = 0; j < this->G[i].size (); ++j) {
 				this->G[i][j].resize (this->N);
 			}
 		}
