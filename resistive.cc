@@ -603,22 +603,41 @@ Circuit::printNodeVoltages (int node)
 	 
 	 fp.open ("file.txt");
 	 
-	 /* Write the points to the file */
-	 for (i = 0; i < this->N; ++i) {
-	 	fp << "Node " << i + 1 << std::endl;
+	 /* If the user specified a particular node then only print the
+	  * voltages for the specified node */
+	 if ((node > 0) && (node <= this->N)) {
+	 	fp << "Node " << node << std::endl;
 	 	
 	 	for (j = 0; j < this->w.size (); ++j) {
 	 		/* Calculate the magnitude of the voltage */
-			mag = std::abs (this->vNode[j][i]);
+	 		mag = std::abs (this->vNode[j][node - 1]);
 	 		
 	 		/* Now convert the magnitude to dB */
 	 		mag = 20 * std::log10 (mag);
 	 		
 	 		fp << this->w[j] << "\t" << mag << std::endl;
 	 	}
-	 	
-	 	fp << "\n\n";
 	 }
+	  
+	 /* Otherwise print the voltages for all nodes */ 
+	 else {
+	 /* Write the points to the file */
+		 for (i = 0; i < this->N; ++i) {
+		 	fp << "Node " << i + 1 << std::endl;
+		 	
+		 	for (j = 0; j < this->w.size (); ++j) {
+		 		/* Calculate the magnitude of the voltage */
+				mag = std::abs (this->vNode[j][i]);
+		 		
+		 		/* Now convert the magnitude to dB */
+		 		mag = 20 * std::log10 (mag);
+		 		
+		 		fp << this->w[j] << "\t" << mag << std::endl;
+		 	}
+		 	
+		 	fp << "\n\n";
+		 }
+	}
 	 
 	 fp.close ();
 	 return;
