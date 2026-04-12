@@ -599,14 +599,17 @@ Circuit::printNodeVoltages (int node)
 	 /* Since we have multiple frequencies the most useful format in which
 	  * we can output the node voltages is in a file, with each node seperated
 	  * from the others */
-	 std::ofstream fp;
+	 std::ofstream fp1;
+	 std::ofstream fp2;
 	 
-	 fp.open ("file.txt");
+	 fp1.open ("magnitude.txt");
+	 fp2.open ("phase.txt");
 	 
 	 /* If the user specified a particular node then only print the
 	  * voltages for the specified node */
 	 if ((node > 0) && (node <= this->N)) {
-	 	fp << "Node " << node << std::endl;
+	 	fp1 << "Node " << node << std::endl;
+	 	fp2 << "Node " << node << std::endl;
 	 	
 	 	for (j = 0; j < this->w.size (); ++j) {
 	 		/* Calculate the magnitude of the voltage */
@@ -615,7 +618,12 @@ Circuit::printNodeVoltages (int node)
 	 		/* Now convert the magnitude to dB */
 	 		mag = 20 * std::log10 (mag);
 	 		
-	 		fp << this->w[j] << "\t" << mag << std::endl;
+	 		/* Calculate the phase angle of the voltage */
+	 		angle = std::arg (this->vNode[j][node - 1]);
+	 		angle *= (180 / M_PI);
+	 		
+	 		fp1 << this->w[j] << "\t" << mag << std::endl;
+	 		fp2 << this->w[j] << "\t" << angle << std::endl;
 	 	}
 	 }
 	  
@@ -623,7 +631,8 @@ Circuit::printNodeVoltages (int node)
 	 else {
 	 /* Write the points to the file */
 		 for (i = 0; i < this->N; ++i) {
-		 	fp << "Node " << i + 1 << std::endl;
+		 	fp1 << "Node " << i + 1 << std::endl;
+		 	fp2 << "Node " << i + 1 << std::endl;
 		 	
 		 	for (j = 0; j < this->w.size (); ++j) {
 		 		/* Calculate the magnitude of the voltage */
@@ -632,13 +641,20 @@ Circuit::printNodeVoltages (int node)
 		 		/* Now convert the magnitude to dB */
 		 		mag = 20 * std::log10 (mag);
 		 		
-		 		fp << this->w[j] << "\t" << mag << std::endl;
+		 		/* Calculate the phase angle */
+		 		angle = std::arg (this->vNode[j][i]);
+		 		angle *= (180 / M_PI);
+		 		
+		 		fp1 << this->w[j] << "\t" << mag << std::endl;
+		 		fp2 << this->w[j] << "\t" << angle << std::endl;
 		 	}
 		 	
-		 	fp << "\n\n";
+		 	fp1 << "\n\n";
+		 	fp2 << "\n\n";
 		 }
 	}
 	 
-	 fp.close ();
+	 fp1.close ();
+	 fp2.close ();
 	 return;
 }
