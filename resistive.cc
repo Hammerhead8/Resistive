@@ -7,6 +7,7 @@
 #include <fstream>
 #include <exception>
 #include <cmath>
+#include <random>
 #include <lapacke.h>
 
 /* Return the larger of two integers */
@@ -174,6 +175,98 @@ Circuit::addResistor (unsigned int n1, unsigned int n2, double value)
 	}
 }
 
+/* Add a resistor with random values within a given tolerance of a nominal value for Monte Carlo analysis */
+void
+Circuit::addResistorMC (unsigned int n1, unsigned int n2, double nominalValue, double tolerance, unsigned int numValues)
+{
+	unsigned int i, j, k;
+	unsigned int lowerBound, upperBound;
+	double randomValue;
+	
+	/* At the moment we can only perform Monte Carlo analysis with one random component */
+	if (this->G.size () > 1) {
+		throw std::runtime_error (std::string ("Invalid operation:  Cannot perform Monte Carlo analysis with more than one random component"));
+	}
+	
+	/* Check if n1 == n2. If so then throw an exception. */
+	if (n1 == n2) {
+		throw std::runtime_error ("Positive and negative terminal of a resistor must be connected to different nodes.");
+	}
+
+	/* If the resistance is negative then we cannot proceed so throw an exception */
+	if (nominalValue <= 0) {
+		throw std::runtime_error (std::string ("Zero or negative resistance between nodes " + std::to_string (n1) + " and " + std::to_string (n2)));
+	}
+	
+	if (this->w[0] != 0.0) {
+		throw std::runtime_error (std::string ("Invalid operation:  Cannot perform Monte Carlo analysis on an AC circuit"));
+	}
+	
+	/* Calculate the lower and upper bounds of the resistor values */
+	lowerBound = nominalValue * (1.0 - tolerance);
+	upperBound = nominalValue * (1.0 + tolerance);
+	
+	/* Create the random number generator */
+	std::random_device r;
+	std::mt19937_64 gen (r ());
+	std::uniform_real_distribution<double> dist (lowerBound, upperBound);
+	
+	this->monteCarloValues.resize (numValues);
+
+	/* Resize the conductance matrix */
+	this->G.resize (numValues);
+	
+	/* Now generate the random values and add them to the conductance matrix */
+	for (i = 0; i < numValues; ++i) {
+		this->G[i] = this->G[0];
+		
+		/* Now update the conductance matrix.
+		 * First check if the larger node is part of the circuit.
+		 * If not then resize the conductance matrix so it is.
+		 * If it is then the first node is also in the current circuit. */
+		if ((n1 > this->N) || (n2 > this->N)) {
+			this->N = max (n1, n2);
+		}
+		
+		if (this->N > this->G[i].size ()) {
+			this->G[i].resize (this->N);
+
+			for (j = 0; j < this->G[i].size (); ++j) {
+				this->G[i][j].resize (this->N);
+			}
+		}
+		
+		/* Generate the resistor values */
+		randomValue = dist (gen);
+		this->monteCarloValues[i] = randomValue;
+
+		/* Add the new resistor to the conductance matrix.
+		 * If one of the nodes is 0, meaning ground, then we
+		 * only need to add it to its corresponding diagonal element. */
+		if (n2 == 0) {
+			this->G[i][n1-1][n1-1] += (1 / randomValue);
+		}
+
+		else if (n1 == 0) {
+			this->G[i][n2-1][n2-1] += (1 / randomValue);
+		}
+
+		/* Otherwise we need to add it to multiple diagonals and two
+		 * off-diagonal elements. */
+		else {
+			/* First add it to the diagonal elements */
+			this->G[i][n1-1][n1-1] += (1 / randomValue);
+			this->G[i][n2-1][n2-1] += (1 / randomValue);
+
+			/* Now subtract it from the off-diagonal elements */
+			this->G[i][n1-1][n2-1] -= (1 / randomValue);
+			this->G[i][n2-1][n1-1] -= (1 / randomValue);
+		}
+	}
+	
+	this->monteCarlo = 1;
+}
+
 /* Add an inductor between nodes n1 and n2 */
 void
 Circuit::addInductor (unsigned int n1, unsigned int n2, double value)
@@ -325,6 +418,7 @@ Circuit::calcNodeVoltages ()
 		throw (std::runtime_error (std::string ("There must be at least one voltage source connected to the circuit.")));
 	}
 	
+	/* If we are calculating the voltages for a DC circuit */
 	if (this->w[0] == 0) {
 		retVal = this->calcDCNodes ();
 	}
@@ -340,7 +434,7 @@ Circuit::calcNodeVoltages ()
 int
 Circuit::calcDCNodes ()
 {
-	unsigned int i, j; /* Loop counters */
+	unsigned int i, j, k; /* Loop counters */
 	unsigned int in;
 	unsigned int gSize;
 	unsigned int vSize;
@@ -366,60 +460,125 @@ Circuit::calcDCNodes ()
 		return -1;
 	}
 
-	/* Now fill gMatrix and vVector */
-	for (i = 0; i < nodes; ++i) {
-		vVector[i] = 0;
+	if (this->monteCarlo == 0) {
+		/* Now fill gMatrix and vVector */
+		for (i = 0; i < nodes; ++i) {
+			vVector[i] = 0;
 
-		for (j = 0; j < nodes; ++j) {
-			gMatrix[i * nodes + j] = this->G[0][i][j].real ();
+			for (j = 0; j < nodes; ++j) {
+				gMatrix[i * nodes + j] = this->G[0][i][j].real ();
+			}
+		}
+
+		/* Set the non-zero values in vVector from vIn */
+		for (i = 0; i < sources; ++i) {
+			in = this->inNode[i] - 1;
+			vVector[in] = this->Vin[i];
+
+			/* Set the diagonal element to 1 and the others to zero
+			 * in the conductance matrix for the row corresponding to
+			 * the source */
+			for (j = 0; j < nodes; ++j) {
+				if (j == in) {
+					gMatrix[in * nodes + j] = 1;
+				}
+
+				else {
+					gMatrix[in * nodes + j] = 0;
+				}
+			}
+		}
+
+		/* Allocate vNode */
+		this->vNode[0].resize (nodes);
+
+		/* Now that gMatrix and vVector are filled we can calculate the nodes voltages
+		 * by solving the system of equations. The result is stored in vVector. */
+		err = LAPACKE_dgesv (LAPACK_ROW_MAJOR, nodes, 1, gMatrix, nodes, ipvt, vVector, 1);
+
+		/* Check for errors */
+		if (err == 0) {
+			/* If no errors occured then copy the results from vVector to vNode */
+			for (i = 0; i < nodes; ++i) {
+				this->vNode[0][i] = vVector[i];
+			}
+		}
+
+		else if (err < 0) {
+			std::cerr << "Argument " << -1 * err << " is invalid." << std::endl;
+			for (i = 0; i < nodes; ++i) {
+				this->vNode[0][i] = NAN;
+			}
+		}
+
+		else {
+			std::cerr << "Conductance matrix is singular." << std::endl;
+			for (i = 0; i < nodes; ++i) {
+				this->vNode[0][i] = NAN;
+			}
 		}
 	}
+	
+	else {
+		this->vNode.resize (this->G.size ());
+		
+		for (i = 0; i < this->G.size (); ++i) {
+			/* Now fill gMatrix and vVector */
+			for (j = 0; j < nodes; ++j) {
+				vVector[j] = 0;
 
-	/* Set the non-zero values in vVector from vIn */
-	for (i = 0; i < sources; ++i) {
-		in = this->inNode[i] - 1;
-		vVector[in] = this->Vin[i];
+				for (k = 0; k < nodes; ++k) {
+					gMatrix[j * nodes + k] = this->G[i][j][k].real ();
+				}
+			}
 
-		/* Set the diagonal element to 1 and the others to zero
-		 * in the conductance matrix for the row corresponding to
-		 * the source */
-		for (j = 0; j < nodes; ++j) {
-			if (j == in) {
-				gMatrix[in * nodes + j] = 1;
+			/* Set the non-zero values in vVector from vIn */
+			for (j = 0; j < sources; ++j) {
+				in = this->inNode[j] - 1;
+				vVector[in] = this->Vin[j];
+
+				/* Set the diagonal element to 1 and the others to zero
+				 * in the conductance matrix for the row corresponding to
+				 * the source */
+				for (k = 0; k < nodes; ++k) {
+					if (k == in) {
+						gMatrix[in * nodes + k] = 1;
+					}
+
+					else {
+						gMatrix[in * nodes + k] = 0;
+					}
+				}
+			}
+
+			/* Allocate vNode */
+			this->vNode[i].resize (nodes);
+
+			/* Now that gMatrix and vVector are filled we can calculate the nodes voltages
+			 * by solving the system of equations. The result is stored in vVector. */
+			err = LAPACKE_dgesv (LAPACK_ROW_MAJOR, nodes, 1, gMatrix, nodes, ipvt, vVector, 1);
+
+			/* Check for errors */
+			if (err == 0) {
+				/* If no errors occured then copy the results from vVector to vNode */
+				for (j = 0; j < nodes; ++j) {
+					this->vNode[i][j] = vVector[j];
+				}
+			}
+
+			else if (err < 0) {
+				std::cerr << "Argument " << -1 * err << " is invalid." << std::endl;
+				for (j = 0; j < nodes; ++j) {
+					this->vNode[i][j] = NAN;
+				}
 			}
 
 			else {
-				gMatrix[in * nodes + j] = 0;
+				std::cerr << "Conductance matrix is singular." << std::endl;
+				for (j = 0; j < nodes; ++j) {
+					this->vNode[i][j] = NAN;
+				}
 			}
-		}
-	}
-
-	/* Allocate vNode */
-	this->vNode[0].resize (nodes);
-
-	/* Now that gMatrix and vVector are filled we can calculate the nodes voltages
-	 * by solving the system of equations. The result is stored in vVector. */
-	err = LAPACKE_dgesv (LAPACK_ROW_MAJOR, nodes, 1, gMatrix, nodes, ipvt, vVector, 1);
-
-	/* Check for errors */
-	if (err == 0) {
-		/* If no errors occured then copy the results from vVector to vNode */
-		for (i = 0; i < nodes; ++i) {
-			this->vNode[0][i] = vVector[i];
-		}
-	}
-
-	else if (err < 0) {
-		std::cerr << "Argument " << -1 * err << " is invalid." << std::endl;
-		for (i = 0; i < nodes; ++i) {
-			this->vNode[0][i] = NAN;
-		}
-	}
-
-	else {
-		std::cerr << "Conductance matrix is singular." << std::endl;
-		for (i = 0; i < nodes; ++i) {
-			this->vNode[0][i] = NAN;
 		}
 	}
 
@@ -535,16 +694,33 @@ Circuit::printNodeVoltages (int node)
 		/* If we are using a DC circuit, then we don't
 		 * need to worry about the phase angle */
 		if (this->w[0] == 0) {
-			/* If the user wants only the voltage at a specific
-			 * node then only print the voltage at that node */
-			if ((node > 0) && (node <= this->N)) {
-				std::cout << "V" << node << " = " << this->vNode[0][node - 1].real () << std::endl;
+			/* If no Monte Carlo analysis is being performed */
+			if (this->monteCarlo == 0) {
+				/* If the user wants only the voltage at a specific
+				 * node then only print the voltage at that node */
+				if ((node > 0) && (node <= this->N)) {
+					std::cout << "V" << node << " = " << this->vNode[0][node - 1].real () << std::endl;
+				}
+				
+				/* Otherwise print all of the node voltages */
+				else {
+					for (i = 0; i < this->N; ++i) {
+						std::cout << "V" << i + 1 << " = " << this->vNode[0][i].real () << std::endl;
+					}
+				}
 			}
 			
-			/* Otherwise print all of the node voltages */
 			else {
-				for (i = 0; i < this->N; ++i) {
-					std::cout << "V" << i + 1 << " = " << this->vNode[0][i].real () << std::endl;
+				if ((node > 0) && (node <= this->N)) {
+					std::ofstream fp;
+					
+					fp.open ("voltages.txt");
+					
+					for (i = 0; i < this->vNode.size (); ++i) {
+						fp << this->monteCarloValues[i] << " " << this->vNode[i][node - 1].real () << std::endl;
+					}
+					
+					fp.close ();
 				}
 			}
 		}

@@ -24,6 +24,9 @@ Circuit
 		/* Add a resistor between nodes n1 and n2 */
 		void addResistor (unsigned int n1, unsigned int n2, double value);
 		
+		/* Add a resistor with random values within a tolerance from a nominal value */
+		void addResistorMC (unsigned int n1, unsigned int n2, double nominalValue, double tolerance, unsigned int numValues);
+		
 		/* Add an inductor between nodes n1 and n2 */
 		void addInductor (unsigned int n1, unsigned int n2, double value);
 		
@@ -43,9 +46,11 @@ Circuit
 		/* Calculate node voltages for AC circuits */
 		int calcACNodes ();
 		
+		unsigned int monteCarlo = 0; /* Used to determine if Monte Carlo analysis is being performed */
 		unsigned int N; /* Number of nodes in the circuit */
 		unsigned int Ns; /* Number of voltage sources */
 		std::vector<double> w; /* Frequency of the circuit in rad/s */
+		std::vector<double> monteCarloValues;
 
 //		std::vector<std::vector<double>> G; /* Conductance matrix */
 		std::vector<std::vector<std::vector<std::complex<double>>>> G; /* Conductance matrix */
