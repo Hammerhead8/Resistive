@@ -182,6 +182,7 @@ Circuit::addResistorMC (unsigned int n1, unsigned int n2, double nominalValue, d
 	unsigned int i, j, k;
 	unsigned int lowerBound, upperBound;
 	double randomValue;
+	std::vector<std::vector<std::complex<double>>> g0; /* Used to hold a copy of the orignal conductance matrix */
 	
 	/* At the moment we can only perform Monte Carlo analysis with one random component */
 	if (this->G.size () > 1) {
@@ -216,9 +217,12 @@ Circuit::addResistorMC (unsigned int n1, unsigned int n2, double nominalValue, d
 	/* Resize the conductance matrix */
 	this->G.resize (numValues);
 	
+	/* Create a copy of the original conductance matrix */
+	g0 = this->G[0];
+	
 	/* Now generate the random values and add them to the conductance matrix */
 	for (i = 0; i < numValues; ++i) {
-		this->G[i] = this->G[0];
+		this->G[i] = g0;
 		
 		/* Now update the conductance matrix.
 		 * First check if the larger node is part of the circuit.
